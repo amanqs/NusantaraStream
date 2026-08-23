@@ -1,0 +1,22 @@
+# Core Telegram Framework
+kurigram>=2.1.38
+TgCrypto>=1.2.5
+
+# Voice Chat Streaming Engine
+py-tgcalls>=2.3.0
+ntgcalls>=2.2.4
+
+# Media Extractor & Processing
+yt-dlp>=2024.08.06
+ffmpeg-python>=0.2.0
+
+# Async & Networking
+aiohttp>=3.9.5
+aiofiles>=24.1.0
+
+# Configuration & Utilities
+python-dotenv>=1.0.1
+Pillow>=10.4.0
+requests>=2.32.3
+psutil>=6.0.0
+mutagen>=1.47.0

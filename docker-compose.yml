@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  nusantara_stream:
+    build: .
+    container_name: nusantara_stream_bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./downloads:/app/downloads
+      - ./cache:/app/cache
+      - ./nusantara_stream.log:/app/nusantara_stream.log
