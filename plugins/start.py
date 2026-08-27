@@ -206,7 +206,7 @@ async def ping_handler(client: Client, message: Message):
 @Client.on_callback_query(filters.regex(r"^help:(.+)"))
 async def help_callback_handler(client: Client, query: CallbackQuery):
     """Handler navigasi tab bantuan via callback inline dengan Rich Markdown Table Card."""
-    action = query.data.split(":")[1]
+    action = query.data.split(":", 1)[1]
 
     if action == "close":
         try:
