@@ -1145,6 +1145,17 @@ async def eval_command(client: Client, message: Message):
         final_markup = reply_markup if reply_markup is not None else parsed_markup
         return await RichParser.send(client, message.chat.id, clean_c, reply_markup=final_markup)
 
+    # Helper methods, rich parser & terminal
+    async def smart_send_message(chat_id, text, *args, **kwargs):
+        if ("\n|" in str(text) or str(text).startswith("|")) and kwargs.get("parse_mode") != ParseMode.HTML:
+            return await RichParser.send(client, chat_id, str(text), **kwargs)
+        return await client.send_message(chat_id, text, *args, **kwargs)
+
+    async def smart_reply_text(text, *args, **kwargs):
+        if ("\n|" in str(text) or str(text).startswith("|")) and kwargs.get("parse_mode") != ParseMode.HTML:
+            return await RichParser.reply(message, str(text), **kwargs)
+        return await message.reply_text(text, *args, **kwargs)
+
     # Pre-injected variables agar tidak perlu repot impor manual
     eval_vars = {
         # Core Telegram instances & aliases
@@ -1162,8 +1173,9 @@ async def eval_command(client: Client, message: Message):
         "r": reply,
         "mention": mention_str,
         # Helper methods, rich parser & terminal
-        "send": client.send_message,
-        "reply_text": message.reply_text,
+        "send": smart_send_message,
+        "send_message": smart_send_message,
+        "reply_text": smart_reply_text,
         "rich": reply_rich,
         "preview": reply_rich,
         "send_rich": send_rich,
@@ -1250,11 +1262,16 @@ async def eval_command(client: Client, message: Message):
             except Exception:
                 raise
 
-        output = redirected_output.getvalue() + redirected_error.getvalue()
-        output = output.strip() or "Eksekusi berhasil (tanpa output return)."
-        if len(output) > 3000:
-            output = output[:3000] + "... (dipotong)"
-        await RichParser.edit(status_msg, f"```python\n{output}\n```")
+        output = (redirected_output.getvalue() + redirected_error.getvalue()).strip()
+        if output:
+            if len(output) > 3000:
+                output = output[:3000] + "... (dipotong)"
+            await RichParser.edit(status_msg, f"```python\n{output}\n```")
+        else:
+            try:
+                await status_msg.delete()
+            except Exception:
+                pass
     except Exception:
         err = traceback.format_exc()
         if len(err) > 3000:
