@@ -35,7 +35,7 @@ from config import Config
 from utils.call_manager import call_manager
 from utils.queue import queue_manager, TrackInfo
 from utils.formatters import clean_markdown, format_now_playing
-from utils.keyboards import get_control_panel, resolve_style, ButtonStyle
+from utils.keyboards import get_control_panel, get_tv_control_panel, resolve_style, ButtonStyle
 from utils.rich_parser import RichParser
 from utils.decorators import bot_admin_check
 from utils.log_helper import send_stream_log
@@ -204,10 +204,11 @@ async def tv_menu_command(client: Client, message: Message):
                     volume=queue_manager.get_volume(chat.id),
                     is_muted=queue_manager.is_muted(chat.id),
                 )
-                markup = get_control_panel(
+                markup = get_tv_control_panel(
                     chat_id=chat.id,
+                    category="indonesia",
+                    current_idx=0,
                     is_paused=False,
-                    is_looping=queue_manager.is_loop_enabled(chat.id),
                     is_muted=queue_manager.is_muted(chat.id),
                 )
                 await RichParser.reply(
@@ -268,10 +269,11 @@ async def tv_menu_command(client: Client, message: Message):
                     volume=queue_manager.get_volume(chat.id),
                     is_muted=queue_manager.is_muted(chat.id),
                 )
-                markup = get_control_panel(
+                markup = get_tv_control_panel(
                     chat_id=chat.id,
+                    category="indonesia",
+                    current_idx=0,
                     is_paused=False,
-                    is_looping=queue_manager.is_loop_enabled(chat.id),
                     is_muted=queue_manager.is_muted(chat.id),
                 )
                 await RichParser.reply(
@@ -415,24 +417,28 @@ async def tv_channel_play_callback(client: Client, query: CallbackQuery):
             volume=queue_manager.get_volume(chat.id),
             is_muted=queue_manager.is_muted(chat.id),
         )
-        markup = get_control_panel(
+        markup = get_tv_control_panel(
             chat_id=chat.id,
+            category=category,
+            current_idx=channel_idx,
             is_paused=False,
-            is_looping=queue_manager.is_loop_enabled(chat.id),
             is_muted=queue_manager.is_muted(chat.id),
         )
 
-        await RichParser.reply(
-            query.message,
-            card_text,
-            reply_markup=markup,
-            link_preview_options=LinkPreviewOptions(is_disabled=True),
-        )
-
         try:
-            await query.message.delete()
+            await RichParser.edit(
+                query.message,
+                card_text,
+                reply_markup=markup,
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
+            )
         except Exception:
-            pass
+            await RichParser.reply(
+                query.message,
+                card_text,
+                reply_markup=markup,
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
+            )
 
         await send_stream_log(client, chat, track, is_video=True)
     except Exception as e:
@@ -486,24 +492,28 @@ async def tv_search_play_callback(client: Client, query: CallbackQuery):
             volume=queue_manager.get_volume(chat.id),
             is_muted=queue_manager.is_muted(chat.id),
         )
-        markup = get_control_panel(
+        markup = get_tv_control_panel(
             chat_id=chat.id,
+            category="indonesia",
+            current_idx=ch_idx,
             is_paused=False,
-            is_looping=queue_manager.is_loop_enabled(chat.id),
             is_muted=queue_manager.is_muted(chat.id),
         )
 
-        await RichParser.reply(
-            query.message,
-            card_text,
-            reply_markup=markup,
-            link_preview_options=LinkPreviewOptions(is_disabled=True),
-        )
-
         try:
-            await query.message.delete()
+            await RichParser.edit(
+                query.message,
+                card_text,
+                reply_markup=markup,
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
+            )
         except Exception:
-            pass
+            await RichParser.reply(
+                query.message,
+                card_text,
+                reply_markup=markup,
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
+            )
 
         await send_stream_log(client, chat, track, is_video=True)
     except Exception as e:

@@ -139,11 +139,24 @@ class CallManager:
             # Modern PyTgCalls 1.x / 2.x
             if track.is_video:
                 v_path = track.video_url or track.file_path or track.stream_url
-                return MediaStream(
-                    media_path=v_path,
-                    audio_parameters=AudioQuality.HIGH,
-                    video_parameters=VideoQuality.HD_720p,
+                a_path = (
+                    track.stream_url
+                    if (track.video_url and track.stream_url and track.video_url != track.stream_url)
+                    else None
                 )
+                if a_path:
+                    return MediaStream(
+                        media_path=v_path,
+                        audio_path=a_path,
+                        audio_parameters=AudioQuality.HIGH,
+                        video_parameters=VideoQuality.HD_720p,
+                    )
+                else:
+                    return MediaStream(
+                        media_path=v_path,
+                        audio_parameters=AudioQuality.HIGH,
+                        video_parameters=VideoQuality.HD_720p,
+                    )
             else:
                 return MediaStream(
                     media_path=track.file_path or track.stream_url,

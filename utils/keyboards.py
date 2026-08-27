@@ -136,6 +136,74 @@ def get_control_panel(
     return InlineKeyboardMarkup(keyboard)
 
 
+def get_tv_control_panel(
+    chat_id: int,
+    category: str = "indonesia",
+    current_idx: int = 0,
+    is_paused: bool = False,
+    is_muted: bool = False,
+) -> InlineKeyboardMarkup:
+    """Control Panel khusus siaran TV & IPTV dengan tombol gonta-ganti channel instan."""
+    pause_resume_text = "▶️ Resume" if is_paused else "⏸ Pause"
+    pause_resume_cb = f"ctrl:resume:{chat_id}" if is_paused else f"ctrl:pause:{chat_id}"
+    mute_text = "🔊 Unmute" if is_muted else "🔇 Mute"
+    mute_cb = f"ctrl:unmute:{chat_id}" if is_muted else f"ctrl:mute:{chat_id}"
+
+    prev_idx = max(0, current_idx - 1)
+    next_idx = current_idx + 1
+
+    keyboard = [
+        # Baris 1: ⏸ Pause | ⛔ Stop | 🔇 Mute
+        [
+            InlineKeyboardButton(
+                pause_resume_text,
+                callback_data=pause_resume_cb,
+                style=ButtonStyle.DANGER,
+            ),
+            InlineKeyboardButton(
+                "⛔ Stop",
+                callback_data=f"ctrl:stop:{chat_id}",
+                style=ButtonStyle.DANGER,
+            ),
+            InlineKeyboardButton(
+                mute_text,
+                callback_data=mute_cb,
+                style=ButtonStyle.DANGER,
+            ),
+        ],
+        # Baris 2: 📺 Ganti Saluran / Buka Daftar TV
+        [
+            InlineKeyboardButton(
+                "📺 Ganti Saluran / Daftar TV",
+                callback_data=f"tv_cat:{category}:1",
+                style=ButtonStyle.SUCCESS,
+            ),
+        ],
+        # Baris 3: ⬅️ Saluran Sebelumnya | Saluran Berikutnya ➡️
+        [
+            InlineKeyboardButton(
+                "⏮ Saluran Sebelumnya",
+                callback_data=f"tv_p:{category}:{prev_idx}",
+                style=ButtonStyle.PRIMARY,
+            ),
+            InlineKeyboardButton(
+                "Saluran Berikutnya ⏭",
+                callback_data=f"tv_p:{category}:{next_idx}",
+                style=ButtonStyle.PRIMARY,
+            ),
+        ],
+        # Baris 4: 🗑 Tutup Panel
+        [
+            InlineKeyboardButton(
+                "🗑 Tutup Panel",
+                callback_data=f"ctrl:close:{chat_id}",
+                style=ButtonStyle.DANGER,
+            ),
+        ],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
 def get_search_carousel_keyboard(
     current_idx: int,
     total_results: int,

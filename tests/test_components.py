@@ -428,6 +428,18 @@ https://example.com/kompas.m3u8
         # Test categories
         self.assertGreater(len(TV_CATEGORIES), 4)
 
+        # Test TV Control Panel with quick channel switcher
+        from utils.keyboards import get_tv_control_panel
+        tv_ctrl = get_tv_control_panel(
+            chat_id=-1001234567890,
+            category="indonesia",
+            current_idx=2,
+            is_paused=False,
+            is_muted=False,
+        )
+        self.assertIsNotNone(tv_ctrl)
+        self.assertTrue(len(tv_ctrl.inline_keyboard) >= 4)
+
     def test_inline_queries(self):
         from plugins.inline import inline_search_handler
 
