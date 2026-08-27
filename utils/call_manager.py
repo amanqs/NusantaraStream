@@ -42,6 +42,15 @@ try:
         return pkg
 
     BridgedClient.package_name = staticmethod(_safe_pkg_name)
+
+    # Patch PyObject recursion bug in PyTgCalls v2
+    try:
+        from pytgcalls.types.py_object import PyObject
+        PyObject.__str__ = lambda self: f"<{self.__class__.__name__}>"
+        PyObject.__repr__ = lambda self: f"<{self.__class__.__name__}>"
+    except Exception:
+        pass
+
     PYTGCALLS_AVAILABLE = True
 except ImportError:
     try:
@@ -129,10 +138,8 @@ class CallManager:
             # Modern PyTgCalls 1.x / 2.x
             if track.is_video:
                 v_path = track.video_url or track.file_path or track.stream_url
-                a_path = track.stream_url if (track.video_url and track.video_url != track.stream_url) else None
                 return MediaStream(
                     media_path=v_path,
-                    audio_path=a_path,
                     audio_parameters=AudioQuality.HIGH,
                     video_parameters=VideoQuality.HD_720p,
                 )
@@ -142,20 +149,16 @@ class CallManager:
                     audio_parameters=AudioQuality.HIGH,
                     video_flags=MediaStream.Flags.IGNORE,
                 )
-        except Exception:
+        except Exception as e:
+            logger.debug(f"MediaStream fallback: {e}")
             try:
-                # Fallback Stream class
-                return Stream(
-                    Stream.AudioVideo(track.file_path or track.stream_url)
-                    if track.is_video
-                    else Stream.Audio(track.file_path or track.stream_url)
-                )
-            except Exception:
-                # Fallback AudioPiped legacy
                 from pytgcalls.types.input_stream import AudioPiped, AudioVideoPiped
-
                 if track.is_video:
-                    return AudioVideoPiped(track.file_path or track.stream_url)
+                    return AudioVideoPiped(track.video_url or track.stream_url)
+                return AudioPiped(track.file_path or track.stream_url)
+            except Exception:
+                raise e
+
     async def _ensure_client_ready(self):
         """Memastikan instance PyTgCalls siap dan terhubung secara dinamis."""
         if not self.call and PYTGCALLS_AVAILABLE:
