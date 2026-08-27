@@ -8,6 +8,8 @@
 # ==============================================================================
 
 import logging
+import os
+import json
 from typing import Optional
 
 try:
@@ -44,9 +46,38 @@ FILM_CHANNEL_ID = -1001688942576
 # Jumlah film per halaman di katalog
 FILMS_PER_PAGE = 8
 
-# Cache katalog dan pencarian film per sesi
-FILM_CATALOG_CACHE: list[dict] = []          # daftar semua film dari channel
-FILM_SEARCH_CACHE: dict[str, list[dict]] = {} # f"{chat_id}_{msg_id}" -> list[dict]
+# Path file cache JSON persistent
+FILM_CACHE_FILE = os.path.join(Config.CACHE_DIR, "film_catalog.json")
+
+
+def _load_catalog_from_file() -> list[dict]:
+    """Membaca cache katalog film dari file JSON jika ada."""
+    if os.path.exists(FILM_CACHE_FILE):
+        try:
+            with open(FILM_CACHE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list) and data:
+                    logger.info(f"Berhasil memuat {len(data)} film dari cache file {FILM_CACHE_FILE}")
+                    return data
+        except Exception as e:
+            logger.error(f"Gagal membaca cache JSON film: {e}")
+    return []
+
+
+def _save_catalog_to_file(films: list[dict]) -> None:
+    """Menyimpan daftar katalog film ke file JSON persistent."""
+    try:
+        os.makedirs(Config.CACHE_DIR, exist_ok=True)
+        with open(FILM_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(films, f, ensure_ascii=False, indent=2)
+        logger.info(f"Tersimpan {len(films)} film ke cache JSON {FILM_CACHE_FILE}")
+    except Exception as e:
+        logger.error(f"Gagal menyimpan cache JSON film: {e}")
+
+
+# Cache katalog dan pencarian film per sesi (dimuat langsung dari file saat startup)
+FILM_CATALOG_CACHE: list[dict] = _load_catalog_from_file()
+FILM_SEARCH_CACHE: dict[str, list[dict]] = {}  # f"{chat_id}_{msg_id}" -> list[dict]
 
 
 # ─────────────────────────────────────────────
@@ -54,17 +85,23 @@ FILM_SEARCH_CACHE: dict[str, list[dict]] = {} # f"{chat_id}_{msg_id}" -> list[di
 # ─────────────────────────────────────────────
 
 async def _fetch_film_catalog(force_refresh: bool = False) -> list[dict]:
-    """Mengambil katalog film dari channel Telegram melalui userbot."""
+    """Mengambil katalog film dari cache memori/JSON atau scan channel Telegram jika belum ada."""
     global FILM_CATALOG_CACHE
     if FILM_CATALOG_CACHE and not force_refresh:
         return FILM_CATALOG_CACHE
+
+    if not force_refresh:
+        loaded = _load_catalog_from_file()
+        if loaded:
+            FILM_CATALOG_CACHE = loaded
+            return loaded
 
     films = []
     # MIME / ekstensi yang dianggap sebagai video/film
     VIDEO_MIMES = ("video/", "application/x-matroska", "application/mxf")
     VIDEO_EXTS  = (".mp4", ".mkv", ".avi", ".mov", ".m4v", ".webm", ".flv", ".ts", ".m2ts", ".wmv", ".3gp")
     try:
-        # Tanpa limit = ambil semua pesan dari channel
+        # Scan semua pesan dari channel
         async for msg in userbot_client.get_chat_history(FILM_CHANNEL_ID):
             media = msg.video or msg.document
             if not media:
@@ -80,6 +117,14 @@ async def _fetch_film_catalog(force_refresh: bool = False) -> list[dict]:
             caption = msg.caption or fname or "Film Tanpa Judul"
             title   = caption.split("\n")[0].strip()[:80] or fname or "Film"
 
+            d = msg.date
+            if hasattr(d, "timestamp"):
+                date_val = int(d.timestamp())
+            elif isinstance(d, (int, float)):
+                date_val = int(d)
+            else:
+                date_val = 0
+
             films.append({
                 "message_id": msg.id,
                 "title":      title,
@@ -88,7 +133,7 @@ async def _fetch_film_catalog(force_refresh: bool = False) -> list[dict]:
                 "file_size":  getattr(media, "file_size", 0) or 0,
                 "duration":   getattr(media, "duration",  0) or 0,
                 "mime_type":  mime,
-                "date":       msg.date,
+                "date":       date_val,
                 "caption":    caption[:300],
                 "thumb":      getattr(media.thumbs[0], "file_id", None)
                               if getattr(media, "thumbs", None) else None,
@@ -98,7 +143,12 @@ async def _fetch_film_catalog(force_refresh: bool = False) -> list[dict]:
 
     # Urutkan: film terbaru di atas
     films.sort(key=lambda x: x.get("date") or 0, reverse=True)
-    FILM_CATALOG_CACHE = films
+    if films:
+        FILM_CATALOG_CACHE = films
+        _save_catalog_to_file(films)
+    elif not films and FILM_CATALOG_CACHE:
+        return FILM_CATALOG_CACHE
+
     return films
 
 
@@ -218,31 +268,38 @@ async def film_command(client: Client, message: Message):
     args = message.text.split(None, 1) if message.text else []
     query = args[1].strip() if len(args) > 1 else ""
 
-    status_msg = await RichParser.reply(
-        message,
-        f"| 🎬 Memuat Katalog Film... |\n|:---:|\n| {'Mencari: ' + clean_markdown(query) if query else 'Mengambil daftar film terbaru dari server...'} |",
-    )
+    # Cek apakah cache film sudah siap
+    has_cache = bool(FILM_CATALOG_CACHE) or os.path.exists(FILM_CACHE_FILE)
+    status_msg = None
+    if not has_cache:
+        status_msg = await RichParser.reply(
+            message,
+            f"| 🎬 Memuat Katalog Film... |\n|:---:|\n| {'Mencari: ' + clean_markdown(query) if query else 'Mengambil daftar film terbaru dari server...'} |",
+        )
 
-    # Ambil katalog (gunakan cache kecuali pertama kali)
     all_films = await _fetch_film_catalog()
 
     if query:
         films = _search_films(all_films, query)
         if not films:
-            return await RichParser.edit(
-                status_msg,
+            err_text = (
                 f"❌ Tidak ditemukan film dengan kata kunci `{clean_markdown(query)}`.\n"
-                f"Ketik `/film` untuk melihat katalog lengkap.",
+                f"Ketik `/film` untuk melihat katalog lengkap."
             )
+            if status_msg:
+                return await RichParser.edit(status_msg, err_text)
+            return await RichParser.reply(message, err_text)
     else:
         films = all_films
 
     if not films:
-        return await RichParser.edit(
-            status_msg,
+        err_text = (
             "❌ Katalog film masih kosong atau channel tidak dapat dijangkau.\n"
-            "Pastikan userbot sudah bergabung ke channel film.",
+            "Pastikan userbot sudah bergabung ke channel film."
         )
+        if status_msg:
+            return await RichParser.edit(status_msg, err_text)
+        return await RichParser.reply(message, err_text)
 
     total = len(films)
     total_pages = max(1, (total + FILMS_PER_PAGE - 1) // FILMS_PER_PAGE)
@@ -257,13 +314,22 @@ async def film_command(client: Client, message: Message):
     text = _format_film_catalog_card(page, total, total_pages, query)
     markup = _get_film_catalog_keyboard(films, page, total_pages, query, search_key)
 
-    await RichParser.edit(
-        status_msg,
-        text,
-        reply_markup=markup,
-        link_preview_options=LinkPreviewOptions(is_disabled=True),
-    )
-    queue_manager.set_now_playing_msg(chat.id, status_msg.id)
+    if status_msg:
+        await RichParser.edit(
+            status_msg,
+            text,
+            reply_markup=markup,
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
+        )
+        queue_manager.set_now_playing_msg(chat.id, status_msg.id)
+    else:
+        sent = await RichParser.reply(
+            message,
+            text,
+            reply_markup=markup,
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
+        )
+        queue_manager.set_now_playing_msg(chat.id, sent.id)
 
 
 # ─────────────────────────────────────────────
