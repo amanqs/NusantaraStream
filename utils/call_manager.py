@@ -156,12 +156,22 @@ class CallManager:
 
                 if track.is_video:
                     return AudioVideoPiped(track.file_path or track.stream_url)
-                return AudioPiped(track.file_path or track.stream_url)
+    async def _ensure_client_ready(self):
+        """Memastikan instance PyTgCalls siap dan terhubung secara dinamis."""
+        if not self.call and PYTGCALLS_AVAILABLE:
+            if getattr(userbot_client, "is_connected", False):
+                self.init_client()
+                if self.call and not self._is_running:
+                    try:
+                        await self.start()
+                    except Exception as e:
+                        logger.error(f"Gagal menjalankan PyTgCalls auto-start: {e}")
 
     async def play_stream(self, chat_id: int, track: TrackInfo) -> bool:
         """Memutar stream audio/video di grup."""
+        await self._ensure_client_ready()
         if not self.call:
-            raise RuntimeError("PyTgCalls belum diinisialisasi.")
+            raise RuntimeError("PyTgCalls belum diinisialisasi. Pastikan STRING_SESSION asisten aktif.")
 
         stream = self._create_stream(track)
 
