@@ -171,6 +171,14 @@ async def tv_menu_command(client: Client, message: Message):
     chat = message.chat
     args = message.text.split(None, 1) if message.text else []
 
+    # Bersihkan kartu TV/Player lama di grup agar tidak ada duplikasi
+    old_msg_id = queue_manager.get_now_playing_msg(chat.id)
+    if old_msg_id and old_msg_id != message.id:
+        try:
+            await client.delete_messages(chat_id=chat.id, message_ids=old_msg_id)
+        except Exception:
+            pass
+
     # 1. Kasus jika query adalah URL langsung: /tv https://...m3u8
     if len(args) > 1:
         query = args[1].strip()
@@ -211,22 +219,19 @@ async def tv_menu_command(client: Client, message: Message):
                     is_paused=False,
                     is_muted=queue_manager.is_muted(chat.id),
                 )
-                await RichParser.reply(
-                    message,
+                await RichParser.edit(
+                    status_msg,
                     card_text,
                     reply_markup=markup,
                     link_preview_options=LinkPreviewOptions(is_disabled=True),
                 )
-                try:
-                    await status_msg.delete()
-                except Exception:
-                    pass
+                queue_manager.set_now_playing_msg(chat.id, status_msg.id)
                 await send_stream_log(client, chat, track, is_video=True)
                 return
             except Exception as e:
                 logger.error(f"Gagal memutar custom IPTV: {e}")
-                return await RichParser.reply(
-                    message, f"❌ Gagal memutar URL IPTV: `{clean_markdown(str(e))}`"
+                return await RichParser.edit(
+                    status_msg, f"❌ Gagal memutar URL IPTV: `{clean_markdown(str(e))}`"
                 )
 
         # 2. Kasus jika query adalah kata kunci pencarian nama TV: /tv antv / /tv kompas
@@ -276,16 +281,13 @@ async def tv_menu_command(client: Client, message: Message):
                     is_paused=False,
                     is_muted=queue_manager.is_muted(chat.id),
                 )
-                await RichParser.reply(
-                    message,
+                await RichParser.edit(
+                    search_status,
                     card_text,
                     reply_markup=markup,
                     link_preview_options=LinkPreviewOptions(is_disabled=True),
                 )
-                try:
-                    await search_status.delete()
-                except Exception:
-                    pass
+                queue_manager.set_now_playing_msg(chat.id, search_status.id)
                 await send_stream_log(client, chat, track, is_video=True)
                 return
             except Exception as e:
@@ -325,6 +327,7 @@ async def tv_menu_command(client: Client, message: Message):
             f"|:---:|\n"
             f"| |"
         )
+        queue_manager.set_now_playing_msg(chat.id, search_status.id)
         return await RichParser.edit(
             search_status,
             card_search,
@@ -337,16 +340,13 @@ async def tv_menu_command(client: Client, message: Message):
     text = format_tv_menu_card("indonesia", len(channels), page=1)
     markup = get_tv_browser_keyboard("indonesia", channels, page=1)
 
-    await RichParser.reply(
-        message,
+    await RichParser.edit(
+        loading_msg,
         text,
         reply_markup=markup,
         link_preview_options=LinkPreviewOptions(is_disabled=True),
     )
-    try:
-        await loading_msg.delete()
-    except Exception:
-        pass
+    queue_manager.set_now_playing_msg(chat.id, loading_msg.id)
 
 
 @Client.on_callback_query(filters.regex(r"^tv_cat:(\w+):(\d+)"))
