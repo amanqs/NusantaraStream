@@ -1018,20 +1018,35 @@ async def sysinfo_command(client: Client, message: Message):
 
 
 @Client.on_message(
-    filters.command(["eval", "sh", "exec"])
+    filters.command(["eval", "e", "sh", "exec", "term", "terminal", "bash"])
     & filters.user(Config.OWNER_ID)
     & ~filters.forwarded
 )
 async def eval_command(client: Client, message: Message):
     """[Owner Only] Mengeksekusi Python script atau shell command secara langsung dengan lingkungan pre-imported lengkap."""
     if len(message.command) < 2:
-        return await RichParser.reply(message, "ℹ️ **Format:** `/eval <kode_python>` atau `/sh <perintah_bash>`")
+        return await RichParser.reply(
+            message,
+            "ℹ️ **Panduan Eksekusi:**\n"
+            "• `/eval <kode_python>` — Eksekusi skrip Python langsung\n"
+            "• `/eval term <perintah>` atau `/term <perintah>` — Eksekusi perintah shell Linux\n"
+            "• `/sh <perintah>` atau `/bash <perintah>` — Eksekusi terminal bash",
+        )
 
     cmd = message.command[0].lower()
     code = message.text.split(None, 1)[1].strip()
     status_msg = await RichParser.reply(message, "⚡ *Mengeksekusi...*")
 
-    if cmd == "sh":
+    # Deteksi eksekusi terminal (baik via /term, /sh, /bash ataupun /eval term <cmd>)
+    is_terminal = cmd in ("sh", "term", "terminal", "bash")
+    if not is_terminal:
+        for prefix in ("term ", "terminal ", "sh ", "bash ", "$ ", "! "):
+            if code.startswith(prefix):
+                is_terminal = True
+                code = code[len(prefix):].strip()
+                break
+
+    if is_terminal:
         try:
             proc = await asyncio.create_subprocess_shell(
                 code,
@@ -1042,9 +1057,9 @@ async def eval_command(client: Client, message: Message):
             out = stdout.decode().strip() or stderr.decode().strip() or "Selesai tanpa output."
             if len(out) > 3000:
                 out = out[:3000] + "... (dipotong)"
-            await RichParser.edit(status_msg, f"```bash\n{out}\n```")
+            await RichParser.edit(status_msg, f"🖥 **Terminal Output (`{clean_markdown(code)}`):**\n```bash\n{out}\n```")
         except Exception as e:
-            await RichParser.edit(status_msg, f"❌ **Error:** `{e}`")
+            await RichParser.edit(status_msg, f"❌ **Terminal Error:** `{e}`")
         return
 
     # Output capture redirection
@@ -1058,6 +1073,16 @@ async def eval_command(client: Client, message: Message):
     reply = message.reply_to_message
     from_u = message.from_user
     mention_str = from_u.mention if from_u else "Pengguna"
+
+    # Helper async terminal runner dalam skrip Python eval
+    async def run_terminal(cmd_str: str) -> str:
+        proc = await asyncio.create_subprocess_shell(
+            cmd_str,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        return stdout.decode().strip() or stderr.decode().strip()
 
     # Pre-injected variables agar tidak perlu repot impor manual
     eval_vars = {
@@ -1075,9 +1100,13 @@ async def eval_command(client: Client, message: Message):
         "reply": reply,
         "r": reply,
         "mention": mention_str,
-        # Helper methods
+        # Helper methods & terminal
         "send": client.send_message,
         "reply_text": message.reply_text,
+        "term": run_terminal,
+        "sh": run_terminal,
+        "bash": run_terminal,
+        "terminal": run_terminal,
         # Core App Modules & Utilities
         "db": db,
         "Config": Config,
