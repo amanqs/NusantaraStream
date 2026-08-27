@@ -401,6 +401,30 @@ class TestNusantaraStreamComponents(unittest.TestCase):
         kb = get_radio_keyboard()
         self.assertIsNotNone(kb)
 
+    def test_tv_and_iptv_system(self):
+        from plugins.tv import TV_CHANNELS, CATEGORIES, get_tv_keyboard, format_tv_menu_card
+
+        self.assertGreater(len(TV_CHANNELS), 8)
+        self.assertIn("tvri_nasional", TV_CHANNELS)
+        self.assertIn("kompas_tv", TV_CHANNELS)
+        self.assertIn("tvri_sport", TV_CHANNELS)
+        self.assertIn("makkah_live", TV_CHANNELS)
+
+        card = format_tv_menu_card("nasional")
+        self.assertIn("Siaran Live TV & IPTV Indonesia 24/7", card)
+        self.assertIn("Berita & Nasional", card)
+
+        kb = get_tv_keyboard("nasional")
+        self.assertIsNotNone(kb)
+        self.assertTrue(len(kb.inline_keyboard) >= 3)
+
+        # Test other categories
+        for cat_id, _ in CATEGORIES:
+            kb_cat = get_tv_keyboard(cat_id)
+            self.assertIsNotNone(kb_cat)
+            card_cat = format_tv_menu_card(cat_id)
+            self.assertIn("Siaran Live TV & IPTV", card_cat)
+
     def test_inline_queries(self):
         from plugins.inline import inline_search_handler
 

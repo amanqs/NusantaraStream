@@ -138,6 +138,7 @@ docker-compose logs -f
 | `/ping` | Mengecek latensi respon bot dan uptime server. |
 | `/play [judul/link]` | Memutar musik audio di Voice Chat grup. |
 | `/vplay [judul/link]` | Memutar video streaming di Voice Chat grup. |
+| `/tv` atau `/iptv` | Buka menu Siaran Live TV & IPTV Indonesia 24/7 di VC. |
 | `/pause` | Menjeda pemutaran musik saat ini. |
 | `/resume` | Melanjutkan kembali lagu yang sedang dijeda. |
 | `/skip` atau `/next` | Melompati lagu saat ini dan memutar lagu berikutnya. |

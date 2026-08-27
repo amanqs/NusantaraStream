@@ -95,6 +95,10 @@ async def start_handler(client: Client, message: Message):
             from plugins.radio import radio_menu_command
             return await radio_menu_command(client, message)
 
+        elif param in ("help_tv", "tv", "iptv"):
+            from plugins.tv import tv_menu_command
+            return await tv_menu_command(client, message)
+
     # Tampilan Table Card
     user_name = clean_markdown(user.first_name if user and user.first_name else "Pengguna").replace("|", "\\|")
 
@@ -287,7 +291,8 @@ async def help_callback_handler(client: Client, query: CallbackQuery):
             "| `/vplay <judul/link>` | Putar video YouTube 720p di Voice Chat |\n"
             "| `/vplay` (balas video) | Putar file berkas video dari Telegram |\n"
             "| `/vplayforce <judul>` | Putar video langsung & lewati antrean |\n"
-            "| `/vstream <link m3u8>` | Putar siaran langsung IPTV/HLS di VC |\n"
+            "| `/tv` / `/iptv` | Buka menu Siaran Live TV Indonesia 24/7 di VC |\n"
+            "| `/tv <link m3u8>` | Putar siaran langsung IPTV/HLS kustom di VC |\n"
             "| `/video <judul>` | Unduh video HD 720p MP4 ke chat |\n\n"
             "| 🤖 Nusantara Stream 🤖 |\n"
             "|:---:|\n"
