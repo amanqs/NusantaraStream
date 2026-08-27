@@ -133,8 +133,13 @@ class CallManager:
             except Exception as e:
                 logger.error(f"Gagal menghentikan PyTgCalls: {e}")
 
-    def _create_stream(self, track: TrackInfo):
-        """Membuat objek Stream kompatibel dengan versi PyTgCalls."""
+    def _create_stream(self, track: TrackInfo, seek_seconds: int = 0):
+        """Membuat objek Stream kompatibel dengan versi PyTgCalls.
+        
+        seek_seconds > 0: maju (skip ke depan)
+        seek_seconds < 0: mundur (replay dari posisi lebih awal)
+        """
+        ffmpeg_extra = f"-ss {max(0, seek_seconds)}" if seek_seconds > 0 else None
         try:
             # Modern PyTgCalls 1.x / 2.x
             if track.is_video:
@@ -150,18 +155,21 @@ class CallManager:
                         audio_path=a_path,
                         audio_parameters=AudioQuality.HIGH,
                         video_parameters=VideoQuality.HD_720p,
+                        ffmpeg_parameters=ffmpeg_extra,
                     )
                 else:
                     return MediaStream(
                         media_path=v_path,
                         audio_parameters=AudioQuality.HIGH,
                         video_parameters=VideoQuality.HD_720p,
+                        ffmpeg_parameters=ffmpeg_extra,
                     )
             else:
                 return MediaStream(
                     media_path=track.file_path or track.stream_url,
                     audio_parameters=AudioQuality.HIGH,
                     video_flags=MediaStream.Flags.IGNORE,
+                    ffmpeg_parameters=ffmpeg_extra,
                 )
         except Exception as e:
             logger.debug(f"MediaStream fallback: {e}")
@@ -214,6 +222,40 @@ class CallManager:
         except Exception as e:
             logger.error(f"Error saat memutar stream di chat {chat_id}: {e}")
             raise e
+
+    async def seek_stream(self, chat_id: int, delta_seconds: int) -> int:
+        """Maju/mundur pemutaran sebesar delta_seconds detik via restart stream + -ss offset.
+        
+        Returns the new position in seconds (approximate), or -1 on failure.
+        """
+        import time as _t
+        track = queue_manager.get_current_track(chat_id)
+        if not track:
+            return -1
+        if track.is_live:
+            return -1  # live stream tidak bisa di-seek
+
+        # Hitung posisi saat ini
+        elapsed = int(_t.time() - track.start_time)
+        new_pos = max(0, elapsed + delta_seconds)
+
+        # Batasi ke durasi jika diketahui
+        if track.duration and track.duration > 0:
+            new_pos = min(new_pos, track.duration - 2)
+
+        try:
+            stream = self._create_stream(track, seek_seconds=new_pos)
+            if hasattr(self.call, "change_stream"):
+                await self.call.change_stream(chat_id, stream)
+            elif hasattr(self.call, "play"):
+                await self.call.play(chat_id, stream)
+            # Perbarui start_time agar elapsed dihitung dari titik baru
+            import time
+            track.start_time = time.time() - new_pos
+            return new_pos
+        except Exception as e:
+            logger.error(f"Seek gagal di chat {chat_id}: {e}")
+            return -1
 
     async def pause_stream(self, chat_id: int) -> bool:
         """Menjeda pemutaran musik."""

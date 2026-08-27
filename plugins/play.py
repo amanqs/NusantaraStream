@@ -33,6 +33,7 @@ from utils.formatters import (
 )
 from utils.keyboards import (
     get_control_panel,
+    get_control_panel_video,
     get_search_carousel_keyboard,
     get_search_keyboard,
 )
@@ -344,7 +345,12 @@ async def process_track_playback(
             volume=queue_manager.get_volume(chat_id),
             is_muted=queue_manager.is_muted(chat_id),
         )
-        markup = get_control_panel(
+        markup = get_control_panel_video(
+            chat_id=chat_id,
+            is_paused=False,
+            is_looping=queue_manager.is_loop_enabled(chat_id),
+            is_muted=queue_manager.is_muted(chat_id),
+        ) if track.is_video else get_control_panel(
             chat_id=chat_id,
             is_paused=False,
             is_looping=queue_manager.is_loop_enabled(chat_id),

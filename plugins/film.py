@@ -31,7 +31,7 @@ from core.userbot import userbot_client
 from utils.call_manager import call_manager
 from utils.queue import queue_manager, TrackInfo
 from utils.formatters import clean_markdown, get_readable_time, human_readable_size
-from utils.keyboards import get_control_panel, resolve_style
+from utils.keyboards import get_control_panel, get_control_panel_video, resolve_style
 from utils.rich_parser import RichParser
 from utils.decorators import bot_admin_check
 from utils.log_helper import send_stream_log
@@ -60,34 +60,38 @@ async def _fetch_film_catalog(force_refresh: bool = False) -> list[dict]:
         return FILM_CATALOG_CACHE
 
     films = []
+    # MIME / ekstensi yang dianggap sebagai video/film
+    VIDEO_MIMES = ("video/", "application/x-matroska", "application/mxf")
+    VIDEO_EXTS  = (".mp4", ".mkv", ".avi", ".mov", ".m4v", ".webm", ".flv", ".ts", ".m2ts", ".wmv", ".3gp")
     try:
-        async for msg in userbot_client.get_chat_history(FILM_CHANNEL_ID, limit=500):
+        # Tanpa limit = ambil semua pesan dari channel
+        async for msg in userbot_client.get_chat_history(FILM_CHANNEL_ID):
             media = msg.video or msg.document
             if not media:
                 continue
-            # Filter: hanya file video/dokumen yang kemungkinan film
-            mime = getattr(media, "mime_type", "") or ""
-            fname = getattr(media, "file_name", "") or ""
-            if "video" not in mime and not any(
-                fname.lower().endswith(ext) for ext in (".mp4", ".mkv", ".avi", ".mov", ".m4v", ".webm")
-            ):
+            mime  = (getattr(media, "mime_type", "") or "").lower()
+            fname = (getattr(media, "file_name", "") or "")
+            fname_lower = fname.lower()
+            # Filter: video MIME atau ekstensi dikenal, abaikan yang lain
+            if not (any(mime.startswith(m) for m in VIDEO_MIMES) or
+                    any(fname_lower.endswith(ext) for ext in VIDEO_EXTS)):
                 continue
 
             caption = msg.caption or fname or "Film Tanpa Judul"
-            # Ambil baris pertama caption sebagai judul
-            title = caption.split("\n")[0].strip()[:80] or fname or "Film"
+            title   = caption.split("\n")[0].strip()[:80] or fname or "Film"
 
             films.append({
                 "message_id": msg.id,
-                "title": title,
-                "file_id": media.file_id,
-                "file_name": fname or "video.mp4",
-                "file_size": getattr(media, "file_size", 0) or 0,
-                "duration": getattr(media, "duration", 0) or 0,
-                "mime_type": mime,
-                "date": msg.date,
-                "caption": caption[:300],
-                "thumb": getattr(media.thumbs[0], "file_id", None) if getattr(media, "thumbs", None) else None,
+                "title":      title,
+                "file_id":    media.file_id,
+                "file_name":  fname or "video.mp4",
+                "file_size":  getattr(media, "file_size", 0) or 0,
+                "duration":   getattr(media, "duration",  0) or 0,
+                "mime_type":  mime,
+                "date":       msg.date,
+                "caption":    caption[:300],
+                "thumb":      getattr(media.thumbs[0], "file_id", None)
+                              if getattr(media, "thumbs", None) else None,
             })
     except Exception as e:
         logger.error(f"Gagal mengambil katalog film dari channel: {e}")
@@ -492,7 +496,7 @@ async def film_play_callback(client: Client, query: CallbackQuery):
             f"| |"
         )
 
-        markup = get_control_panel(
+        markup = get_control_panel_video(
             chat_id=chat.id,
             is_paused=False,
             is_looping=queue_manager.is_loop_enabled(chat.id),

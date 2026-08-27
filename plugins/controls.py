@@ -28,6 +28,7 @@ from utils.formatters import (
 )
 from utils.keyboards import (
     get_control_panel,
+    get_control_panel_video,
     get_queue_keyboard,
     ButtonStyle,
 )
@@ -543,3 +544,62 @@ async def set_speed_callback(client: Client, query: CallbackQuery):
     except Exception:
         pass
     await query.answer(f"⚡ Kecepatan audio disetel ke {speed_val}x!", show_alert=False)
+
+
+# ============================================================================
+# SEEK — MAJU / MUNDUR PEMUTARAN (Video & Audio, kecuali Live/TV/Radio)
+# ============================================================================
+
+@Client.on_message(filters.command(["seek", "ff", "rw"]) & ~filters.forwarded)
+@authorized_only
+async def seek_command(client: Client, message: Message):
+    """Handler /seek <detik> — loncat posisi putar. Contoh: /ff 30 (maju 30 detik)."""
+    chat_id = message.chat.id
+    current = queue_manager.get_current_track(chat_id)
+    if not current:
+        return await RichParser.reply(message, "❌ *Tidak ada yang sedang diputar.*")
+    if current.is_live:
+        return await RichParser.reply(message, "⚠️ *Seek tidak bisa digunakan pada Live Stream / TV.*")
+
+    cmd = message.command[0].lower()
+    args = message.command[1:]
+    try:
+        delta = int(args[0]) if args else 10
+    except ValueError:
+        delta = 10
+    if cmd == "rw":
+        delta = -abs(delta)
+    elif cmd == "ff":
+        delta = abs(delta)
+
+    new_pos = await call_manager.seek_stream(chat_id, delta)
+    if new_pos < 0:
+        return await RichParser.reply(message, "❌ *Gagal melakukan seek.*")
+    await RichParser.reply(
+        message,
+        f"{'⏩' if delta > 0 else '⏪'} **Seek {'Maju' if delta > 0 else 'Mundur'} {abs(delta)} detik**\n"
+        f"> Posisi sekarang: `{get_readable_time(new_pos)}`"
+    )
+
+
+@Client.on_callback_query(filters.regex(r"^seek:(\d+):([+-]?\d+)$"))
+async def seek_callback(client: Client, query: CallbackQuery):
+    """Callback tombol seek di control panel video/film."""
+    chat_id = int(query.matches[0].group(1))
+    delta   = int(query.matches[0].group(2))
+
+    current = queue_manager.get_current_track(chat_id)
+    if not current:
+        return await query.answer("❌ Tidak ada yang sedang diputar.", show_alert=True)
+    if current.is_live:
+        return await query.answer("⚠️ Seek tidak tersedia untuk Live Stream.", show_alert=True)
+
+    new_pos = await call_manager.seek_stream(chat_id, delta)
+    if new_pos < 0:
+        return await query.answer("❌ Gagal melakukan seek.", show_alert=True)
+
+    direction = "⏩ Maju" if delta > 0 else "⏪ Mundur"
+    await query.answer(
+        f"{direction} {abs(delta)}s — Posisi: {get_readable_time(new_pos)}",
+        show_alert=False,
+    )

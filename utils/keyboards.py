@@ -136,6 +136,63 @@ def get_control_panel(
     return InlineKeyboardMarkup(keyboard)
 
 
+def get_control_panel_video(
+    chat_id: int,
+    is_paused: bool = False,
+    is_looping: bool = False,
+    is_muted: bool = False,
+) -> InlineKeyboardMarkup:
+    """Control Panel untuk Video/Film — sama dengan audio + baris Seek maju/mundur."""
+    pause_resume_text = "▶️ Resume" if is_paused else "⏸ Pause"
+    pause_resume_cb = f"ctrl:resume:{chat_id}" if is_paused else f"ctrl:pause:{chat_id}"
+
+    mute_text = "🔊 Unmute" if is_muted else "🔇 Mute"
+    mute_cb = f"ctrl:unmute:{chat_id}" if is_muted else f"ctrl:mute:{chat_id}"
+
+    loop_text = "🔁 Loop (ON)" if is_looping else "🔁 Loop"
+    loop_style = ButtonStyle.SUCCESS if is_looping else ButtonStyle.PRIMARY
+
+    keyboard = [
+        # Baris 1: ⏸ Pause | ⛔ Stop | 🔇 Mute
+        [
+            InlineKeyboardButton(pause_resume_text, callback_data=pause_resume_cb, style=ButtonStyle.DANGER),
+            InlineKeyboardButton("⛔ Stop", callback_data=f"ctrl:stop:{chat_id}", style=ButtonStyle.DANGER),
+            InlineKeyboardButton(mute_text, callback_data=mute_cb, style=ButtonStyle.DANGER),
+        ],
+        # Baris 2: Seek mundur — -30s | -10s | +10s | +30s — maju
+        [
+            InlineKeyboardButton("⏪ -30s", callback_data=f"seek:{chat_id}:-30", style=ButtonStyle.PRIMARY),
+            InlineKeyboardButton("◀️ -10s", callback_data=f"seek:{chat_id}:-10", style=ButtonStyle.PRIMARY),
+            InlineKeyboardButton("▶️ +10s", callback_data=f"seek:{chat_id}:+10", style=ButtonStyle.PRIMARY),
+            InlineKeyboardButton("⏩ +30s", callback_data=f"seek:{chat_id}:+30", style=ButtonStyle.PRIMARY),
+        ],
+        # Baris 3: ⏩ Skip | 🔄 Shuffle | 🔁 Loop
+        [
+            InlineKeyboardButton("⏩ Skip", callback_data=f"ctrl:skip:{chat_id}", style=ButtonStyle.PRIMARY),
+            InlineKeyboardButton("🔄 Shuffle", callback_data=f"ctrl:shuffle:{chat_id}", style=ButtonStyle.PRIMARY),
+            InlineKeyboardButton(loop_text, callback_data=f"ctrl:loop:{chat_id}", style=loop_style),
+        ],
+        # Baris 4: 🗑 Close
+        [
+            InlineKeyboardButton("🗑 Close", callback_data=f"ctrl:close:{chat_id}", style=ButtonStyle.DANGER),
+        ],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_seek_panel(chat_id: int) -> InlineKeyboardMarkup:
+    """Panel seek terpisah: tombol maju/mundur 10 / 20 / 60 detik."""
+    keyboard = [
+        [
+            InlineKeyboardButton("⏪ -60s", callback_data=f"seek:{chat_id}:-60", style=ButtonStyle.PRIMARY),
+            InlineKeyboardButton("⏪ -20s", callback_data=f"seek:{chat_id}:-20", style=ButtonStyle.PRIMARY),
+            InlineKeyboardButton("⏩ +20s", callback_data=f"seek:{chat_id}:+20", style=ButtonStyle.PRIMARY),
+            InlineKeyboardButton("⏩ +60s", callback_data=f"seek:{chat_id}:+60", style=ButtonStyle.PRIMARY),
+        ],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
 def get_tv_control_panel(
     chat_id: int,
     category: str = "indonesia",
