@@ -261,8 +261,20 @@ async def tv_menu_command(client: Client, message: Message):
 
             try:
                 await call_manager.play_stream(chat.id, track)
-                card_text = format_now_playing(track, is_paused=False)
-                markup = get_control_panel(track)
+                card_text = format_now_playing(
+                    track=track,
+                    current_sec=0,
+                    is_paused=False,
+                    is_looping=queue_manager.is_loop_enabled(chat.id),
+                    volume=queue_manager.get_volume(chat.id),
+                    is_muted=queue_manager.is_muted(chat.id),
+                )
+                markup = get_control_panel(
+                    chat_id=chat.id,
+                    is_paused=False,
+                    is_looping=queue_manager.is_loop_enabled(chat.id),
+                    is_muted=queue_manager.is_muted(chat.id),
+                )
                 await RichParser.reply(
                     message,
                     card_text,
@@ -355,8 +367,20 @@ async def tv_play_callback(client: Client, query: CallbackQuery):
 
     try:
         await call_manager.play_stream(chat.id, track)
-        card_text = format_now_playing(track, is_paused=False)
-        markup = get_control_panel(track)
+        card_text = format_now_playing(
+            track=track,
+            current_sec=0,
+            is_paused=False,
+            is_looping=queue_manager.is_loop_enabled(chat.id),
+            volume=queue_manager.get_volume(chat.id),
+            is_muted=queue_manager.is_muted(chat.id),
+        )
+        markup = get_control_panel(
+            chat_id=chat.id,
+            is_paused=False,
+            is_looping=queue_manager.is_loop_enabled(chat.id),
+            is_muted=queue_manager.is_muted(chat.id),
+        )
 
         await RichParser.reply(
             query.message,
