@@ -217,8 +217,20 @@ def format_now_playing(
     if is_muted:
         status_header = "🔇 Media Dibisukan (Muted)"
 
-    clean_thumb = get_clean_youtube_thumbnail(track.url, getattr(track, "thumbnail", None))
-    media_part = f"![]({clean_thumb})\n\n" if clean_thumb else ""
+    is_tv = track.is_live and ("iptv" in str(track.channel).lower() or ".m3u8" in str(track.url).lower())
+    if is_tv:
+        title_display = f"`{clean_title}`"
+        media_label = "📺 Saluran TV"
+        media_part = ""
+    elif track.url and track.url.startswith("http") and not track.url.endswith(".m3u8"):
+        title_display = f"[{clean_title}]({track.url})"
+        media_label = "▶️ Judul Media"
+        clean_thumb = get_clean_youtube_thumbnail(track.url, getattr(track, "thumbnail", None))
+        media_part = f"![]({clean_thumb})\n\n" if clean_thumb else ""
+    else:
+        title_display = f"`{clean_title}`"
+        media_label = "▶️ Judul Media"
+        media_part = ""
 
     text = (
         f"{media_part}"
@@ -227,7 +239,7 @@ def format_now_playing(
         f"| |\n\n"
         f"| Parameter | Detail Informasi |\n"
         f"|:---|:---|\n"
-        f"| ▶️ Judul Media | [{clean_title}]({track.url}) |\n"
+        f"| {media_label} | {title_display} |\n"
         f"| 🎬 Format Stream | {stream_format} |\n"
         f"| 👤 Diminta oleh | {clean_requester} |\n"
         f"| ⏱ Total Durasi | {duration_display} |\n\n"

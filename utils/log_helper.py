@@ -108,34 +108,58 @@ async def send_stream_log(
         req_id = actual_track.requested_by_id or 0
         clean_chat = clean_markdown(chat_title or "Voice Chat").replace("|", "\\|")
 
+        is_tv_stream = (is_video or actual_track.is_video) and (actual_track.is_live or "iptv" in str(actual_track.channel).lower() or ".m3u8" in str(actual_track.url).lower())
+
         if is_radio:
+            header_title = "📻 Log Siaran Radio Aktif"
+            header_desc = "Siaran radio nasional dimulai di obrolan suara"
+            media_label = "📻 Saluran Radio"
             stream_type = "📻 Radio 24/7 Nasional"
             dur_str = "🔴 Live 24/7"
+            title_display = f"`{clean_title}`"
+            media_part = ""
+        elif is_tv_stream:
+            header_title = "📺 Log Siaran Live TV & IPTV Aktif"
+            header_desc = "Siaran televisi langsung dimulai di obrolan suara"
+            media_label = "📺 Saluran TV"
+            stream_type = "📺 Live TV / IPTV 720p HD"
+            dur_str = "🔴 Siaran Langsung (Live)"
+            title_display = f"`{clean_title}`"
+            media_part = ""
         elif is_video or actual_track.is_video:
-            stream_type = "🎬 Video HD 720p" if not actual_track.is_live else "📺 Siaran Live TV / IPTV 720p"
+            header_title = "🎬 Log Pemutaran Video Aktif"
+            header_desc = "Pemutaran video HD dimulai di obrolan suara"
+            media_label = "🎬 Judul Video"
+            stream_type = "🎬 Video HD 720p"
             dur_str = "🔴 Live" if actual_track.is_live else get_readable_time(actual_track.duration)
+            title_display = f"[{clean_title}]({actual_track.url})" if actual_track.url.startswith("http") else f"`{clean_title}`"
+            clean_thumb = get_clean_youtube_thumbnail(actual_track.url, getattr(actual_track, "thumbnail", None))
+            media_part = f"![]({clean_thumb})\n\n" if clean_thumb else ""
         else:
+            header_title = "🎵 Log Pemutaran Streaming Aktif"
+            header_desc = "Pemutaran media musik dimulai di obrolan suara"
+            media_label = "💿 Judul Lagu"
             stream_type = "🎵 Audio HQ 320kbps"
             dur_str = "🔴 Live" if actual_track.is_live else get_readable_time(actual_track.duration)
-
-        clean_thumb = get_clean_youtube_thumbnail(actual_track.url, getattr(actual_track, "thumbnail", None))
-        media_part = f"![]({clean_thumb})\n\n" if (clean_thumb and not is_radio) else ""
+            title_display = f"[{clean_title}]({actual_track.url})" if actual_track.url.startswith("http") else f"`{clean_title}`"
+            clean_thumb = get_clean_youtube_thumbnail(actual_track.url, getattr(actual_track, "thumbnail", None))
+            media_part = f"![]({clean_thumb})\n\n" if clean_thumb else ""
 
         log_card = (
             f"{media_part}"
-            "| 🎵 Log Pemutaran Streaming Aktif |\n"
-            "|:---:|\n"
-            "| Pemutaran media baru dimulai di obrolan suara |\n\n"
-            "| Parameter | Detail Informasi |\n"
-            "|:---|:---|\n"
-            f"| 💿 Judul Media | [{clean_title}]({actual_track.url}) |\n"
+            f"| {header_title} |\n"
+            f"|:---:|\n"
+            f"| {header_desc} |\n\n"
+            f"| Parameter | Detail Informasi |\n"
+            f"|:---|:---|\n"
+            f"| {media_label} | {title_display} |\n"
             f"| 🎬 Format Stream | {stream_type} |\n"
             f"| ⏱ Total Durasi | `{dur_str}` |\n"
             f"| 👤 Diminta oleh | [{clean_req}](tg://user?id={req_id}) (`{req_id}`) |\n"
             f"| 👥 Obrolan Suara | `{clean_chat}` (`{chat_id}`) |\n\n"
-            "| 🤖 Nusantara Stream Logger 🤖 |\n"
-            "|:---:|\n"
-            "| |"
+            f"| 🤖 Nusantara Stream Logger 🤖 |\n"
+            f"|:---:|\n"
+            f"| |"
         )
 
         await RichParser.send(
