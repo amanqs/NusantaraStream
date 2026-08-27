@@ -74,32 +74,51 @@ async def send_start_log(client: Client, message: Message):
 
 async def send_stream_log(
     client: Client,
-    chat_id: int,
-    chat_title: str,
-    track: TrackInfo,
+    chat_or_id,
+    title_or_track=None,
+    track: Optional[TrackInfo] = None,
     is_radio: bool = False,
+    is_video: bool = False,
+    **kwargs,
 ):
-    """Mengirim log ke LOG_GROUP_ID saat pemutaran musik/video/radio dimulai di Voice Chat."""
+    """Mengirim log ke LOG_GROUP_ID saat pemutaran musik/video/radio/TV dimulai di Voice Chat."""
     if not Config.LOG_GROUP_ID:
         return
 
     try:
-        clean_title = clean_markdown(track.title).replace("|", "\\|")
-        clean_req = clean_markdown(track.requested_by_name or "Pengguna").replace("|", "\\|")
-        req_id = track.requested_by_id or 0
+        # Resolusi parameter fleksibel (chat object vs chat_id)
+        if hasattr(chat_or_id, "id"):
+            chat_id = chat_or_id.id
+            chat_title = getattr(chat_or_id, "title", "Voice Chat") or "Voice Chat"
+            actual_track = title_or_track if isinstance(title_or_track, TrackInfo) else track
+        else:
+            chat_id = int(chat_or_id)
+            if isinstance(title_or_track, str):
+                chat_title = title_or_track
+                actual_track = track
+            else:
+                chat_title = "Voice Chat"
+                actual_track = title_or_track if isinstance(title_or_track, TrackInfo) else track
+
+        if not actual_track:
+            return
+
+        clean_title = clean_markdown(actual_track.title).replace("|", "\\|")
+        clean_req = clean_markdown(actual_track.requested_by_name or "Pengguna").replace("|", "\\|")
+        req_id = actual_track.requested_by_id or 0
         clean_chat = clean_markdown(chat_title or "Voice Chat").replace("|", "\\|")
 
         if is_radio:
             stream_type = "📻 Radio 24/7 Nasional"
             dur_str = "🔴 Live 24/7"
-        elif track.is_video:
-            stream_type = "🎬 Video HD 720p"
-            dur_str = "🔴 Live" if track.is_live else get_readable_time(track.duration)
+        elif is_video or actual_track.is_video:
+            stream_type = "🎬 Video HD 720p" if not actual_track.is_live else "📺 Siaran Live TV / IPTV 720p"
+            dur_str = "🔴 Live" if actual_track.is_live else get_readable_time(actual_track.duration)
         else:
             stream_type = "🎵 Audio HQ 320kbps"
-            dur_str = "🔴 Live" if track.is_live else get_readable_time(track.duration)
+            dur_str = "🔴 Live" if actual_track.is_live else get_readable_time(actual_track.duration)
 
-        clean_thumb = get_clean_youtube_thumbnail(track.url, getattr(track, "thumbnail", None))
+        clean_thumb = get_clean_youtube_thumbnail(actual_track.url, getattr(actual_track, "thumbnail", None))
         media_part = f"![]({clean_thumb})\n\n" if (clean_thumb and not is_radio) else ""
 
         log_card = (
@@ -109,7 +128,7 @@ async def send_stream_log(
             "| Pemutaran media baru dimulai di obrolan suara |\n\n"
             "| Parameter | Detail Informasi |\n"
             "|:---|:---|\n"
-            f"| 💿 Judul Media | [{clean_title}]({track.url}) |\n"
+            f"| 💿 Judul Media | [{clean_title}]({actual_track.url}) |\n"
             f"| 🎬 Format Stream | {stream_type} |\n"
             f"| ⏱ Total Durasi | `{dur_str}` |\n"
             f"| 👤 Diminta oleh | [{clean_req}](tg://user?id={req_id}) (`{req_id}`) |\n"
