@@ -103,6 +103,7 @@ from utils.formatters import (
     format_broadcast_progress_card,
     format_broadcast_finished_card,
     human_readable_size,
+    parse_rich_text_and_buttons,
 )
 from utils.rich_parser import RichParser
 from utils.database import db
@@ -1018,6 +1019,40 @@ async def sysinfo_command(client: Client, message: Message):
 
 
 @Client.on_message(
+    filters.command(["preview", "rich", "render", "prv"])
+    & filters.user(Config.SUDO_USERS)
+    & ~filters.forwarded
+)
+async def preview_handler(client: Client, message: Message):
+    """[Sudo/Owner] Menguji dan menampilkan preview Rich Message beserta tombol [[...]]."""
+    if len(message.command) < 2 and not message.reply_to_message:
+        return await RichParser.reply(
+            message,
+            "| ⚠️ Panduan Perintah Preview — Rich Message |\n"
+            "|:---:|\n"
+            "| Format Pengujian Format Rich Telegram |\n\n"
+            "| Format Perintah | Keterangan |\n"
+            "|:---|:---|\n"
+            "| `/preview <teks_format>` | Uji langsung teks dengan tabel/quote/tombol |\n"
+            "| `/preview` (balas pesan) | Uji teks dari pesan yang dibalas |\n\n"
+            "| 💡 Mendukung: Tabel `|`, Quote `>`, Tombol `[[Label|data|style]]` |\n"
+            "|:---:|\n"
+            "| |",
+        )
+
+    if len(message.command) >= 2:
+        target_text = str(message.text.split(None, 1)[1])
+    else:
+        target_text = str(message.reply_to_message.text or message.reply_to_message.caption or "")
+
+    if not target_text:
+        return await RichParser.reply(message, "⚠️ **Tidak ada teks format yang ditemukan untuk diuji.**")
+
+    clean_content, markup = parse_rich_text_and_buttons(target_text)
+    return await RichParser.reply(message, clean_content, reply_markup=markup)
+
+
+@Client.on_message(
     filters.command(["eval", "e", "sh", "exec", "term", "terminal", "bash"])
     & filters.user(Config.OWNER_ID)
     & ~filters.forwarded
@@ -1029,12 +1064,27 @@ async def eval_command(client: Client, message: Message):
             message,
             "ℹ️ **Panduan Eksekusi:**\n"
             "• `/eval <kode_python>` — Eksekusi skrip Python langsung\n"
-            "• `/eval term <perintah>` atau `/term <perintah>` — Eksekusi perintah shell Linux\n"
+            "• `/eval rich <teks>` — Render langsung Rich Message & Tombol\n"
+            "• `/eval term <perintah>` atau `/term <perintah>` — Eksekusi shell Linux\n"
             "• `/sh <perintah>` atau `/bash <perintah>` — Eksekusi terminal bash",
         )
 
     cmd = message.command[0].lower()
     code = message.text.split(None, 1)[1].strip()
+
+    # Deteksi eksekusi Rich Message Preview di eval (misal: /eval rich <teks> atau /eval preview <teks>)
+    is_rich = cmd in ("rich", "preview", "render", "prv")
+    if not is_rich:
+        for prefix in ("rich ", "preview ", "render ", "prv "):
+            if code.startswith(prefix):
+                is_rich = True
+                code = code[len(prefix):].strip()
+                break
+
+    if is_rich:
+        clean_content, markup = parse_rich_text_and_buttons(code)
+        return await RichParser.reply(message, clean_content, reply_markup=markup)
+
     status_msg = await RichParser.reply(message, "⚡ *Mengeksekusi...*")
 
     # Deteksi eksekusi terminal (baik via /term, /sh, /bash ataupun /eval term <cmd>)
@@ -1084,6 +1134,17 @@ async def eval_command(client: Client, message: Message):
         stdout, stderr = await proc.communicate()
         return stdout.decode().strip() or stderr.decode().strip()
 
+    # Helper rich message sender dalam skrip Python eval
+    async def reply_rich(text_content: str, reply_markup=None):
+        clean_c, parsed_markup = parse_rich_text_and_buttons(text_content)
+        final_markup = reply_markup if reply_markup is not None else parsed_markup
+        return await RichParser.reply(message, clean_c, reply_markup=final_markup)
+
+    async def send_rich(text_content: str, reply_markup=None):
+        clean_c, parsed_markup = parse_rich_text_and_buttons(text_content)
+        final_markup = reply_markup if reply_markup is not None else parsed_markup
+        return await RichParser.send(client, message.chat.id, clean_c, reply_markup=final_markup)
+
     # Pre-injected variables agar tidak perlu repot impor manual
     eval_vars = {
         # Core Telegram instances & aliases
@@ -1100,9 +1161,13 @@ async def eval_command(client: Client, message: Message):
         "reply": reply,
         "r": reply,
         "mention": mention_str,
-        # Helper methods & terminal
+        # Helper methods, rich parser & terminal
         "send": client.send_message,
         "reply_text": message.reply_text,
+        "rich": reply_rich,
+        "preview": reply_rich,
+        "send_rich": send_rich,
+        "parse_rich_text_and_buttons": parse_rich_text_and_buttons,
         "term": run_terminal,
         "sh": run_terminal,
         "bash": run_terminal,

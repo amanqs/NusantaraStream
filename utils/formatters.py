@@ -379,9 +379,73 @@ except ImportError:
                 self.html = html
 
 
-from utils.rich_parser import RichParser
-
-
 def to_rich_message(markdown_text: str) -> InputRichMessage:
     """Mengubah format Markdown Rich Message menjadi objek InputRichMessage (Telegram Bot API 10.x)."""
+    from utils.rich_parser import RichParser
     return RichParser.get_input_rich_message(markdown_text)
+
+
+def parse_rich_text_and_buttons(raw_text: str):
+    """Memisahkan teks konten dan tombol inline dari format [[Label|Data/URL|Style]].
+
+    Mendukung format tombol:
+    - [[Tombol|callback_data]]
+    - [[Tombol|callback_data|success]]
+    - [[Tombol|callback_data|danger]]
+    - [[Tombol|https://link.com]] atau [[Tombol|url:https://link.com]]
+    - [[Tombol|copy:085718366690|success]]
+    """
+    if not raw_text:
+        return "", None
+
+    try:
+        from kurigram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    except ImportError:
+        try:
+            from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+        except ImportError:
+            InlineKeyboardMarkup = None
+            InlineKeyboardButton = None
+
+    from utils.keyboards import ButtonStyle
+
+    lines = raw_text.splitlines()
+    text_lines = []
+    keyboard = []
+
+    btn_pattern = re.compile(r"\[\[(.*?)\]\]")
+
+    for line in lines:
+        stripped = line.strip()
+        matches = btn_pattern.findall(stripped)
+        # Jika satu baris hanya berisi kumpulan tombol [[...]]
+        if matches and stripped.startswith("[[") and stripped.endswith("]]"):
+            if InlineKeyboardMarkup and InlineKeyboardButton:
+                row = []
+                for match in matches:
+                    parts = [p.strip() for p in match.split("|")]
+                    label = parts[0] if parts else "Tombol"
+                    data = parts[1] if len(parts) > 1 else label
+                    style_str = parts[2].lower() if len(parts) > 2 else ""
+
+                    style = ButtonStyle.PRIMARY
+                    if style_str in ("success", "green", "sukses"):
+                        style = ButtonStyle.SUCCESS
+                    elif style_str in ("danger", "red", "bahaya"):
+                        style = ButtonStyle.DANGER
+
+                    if data.startswith("http://") or data.startswith("https://"):
+                        row.append(InlineKeyboardButton(label, url=data))
+                    elif data.startswith("url:"):
+                        row.append(InlineKeyboardButton(label, url=data[4:].strip()))
+                    else:
+                        row.append(InlineKeyboardButton(label, callback_data=data, style=style))
+                if row:
+                    keyboard.append(row)
+        else:
+            text_lines.append(line)
+
+    clean_text = "\n".join(text_lines).strip()
+    markup = InlineKeyboardMarkup(keyboard) if keyboard else None
+    return clean_text, markup
+
