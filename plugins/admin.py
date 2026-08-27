@@ -9,6 +9,7 @@
 
 import asyncio
 import time
+import datetime
 import os
 import shutil
 import logging
@@ -18,8 +19,8 @@ import sys
 
 try:
     from kurigram import Client, filters
-    from kurigram.types import Message
-    from kurigram.enums import ChatMemberStatus
+    from kurigram.types import Message, ReplyParameters
+    from kurigram.enums import ParseMode, ChatMemberStatus
     from kurigram.errors import (
         FloodWait,
         UserIsBlocked,
@@ -31,8 +32,8 @@ try:
     )
 except ImportError:
     from pyrogram import Client, filters
-    from pyrogram.types import Message
-    from pyrogram.enums import ChatMemberStatus
+    from pyrogram.types import Message, ReplyParameters
+    from pyrogram.enums import ParseMode, ChatMemberStatus
     try:
         from pyrogram.errors import (
             FloodWait,
@@ -52,6 +53,14 @@ except ImportError:
         class ChatAdminRequired(Exception): pass
         class ChatWriteForbidden(Exception): pass
         class ChannelPrivate(Exception): pass
+
+        class ParseMode:
+            HTML = "html"
+            MARKDOWN = "markdown"
+
+        class ReplyParameters:
+            def __init__(self, message_id: int, **kwargs):
+                self.message_id = message_id
 
 from config import Config
 from utils.decorators import (
@@ -308,19 +317,19 @@ async def backup_db_command(client: Client, message: Message):
     size_str = human_readable_size(summary.get("size_bytes", 0))
 
     caption_card = (
-        "| 💾 Cadangan Database Nusantara Stream |\n"
-        "|:---:|\n"
+        f"| 💾 Cadangan Database — {Config.BOT_NAME} |\n"
+        f"|:---:|\n"
         f"| Waktu Backup: `{now_str}` |\n\n"
-        "| Metrik Database | Jumlah Data |\n"
-        "|:---|:---|\n"
+        f"| Metrik Database | Statistik Sistem |\n"
+        f"|:---|:---|\n"
         f"| 👥 Pengguna Terlayani | `{u_cnt:,}` pengguna |\n"
         f"| 📢 Grup Terlayani | `{c_cnt:,}` grup |\n"
-        f"| 🛡️ Sudo Administrator | `{s_cnt}` admin |\n"
-        f"| 📂 Lagu di Playlist | `{p_cnt:,}` lagu |\n"
+        f"| 🛡️ Sudo Admin | `{s_cnt}` admin |\n"
+        f"| 📂 Lagu Playlist | `{p_cnt:,}` lagu |\n"
         f"| 💾 Ukuran Berkas | `{size_str}` |\n\n"
-        "| 💡 Untuk memulihkan: Balas berkas ini dengan `/restore` |\n"
-        "|:---:|\n"
-        "| |"
+        f"| 💡 Balas berkas ini dengan `/restore` untuk memulihkan database |\n"
+        f"|:---:|\n"
+        f"| |"
     )
 
     try:
@@ -329,7 +338,8 @@ async def backup_db_command(client: Client, message: Message):
             document=db_path,
             file_name=backup_name,
             caption=caption_card,
-            reply_to_message_id=message.id,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_parameters=ReplyParameters(message_id=message.id),
         )
         await status_msg.delete()
     except Exception as e:
