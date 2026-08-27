@@ -83,6 +83,12 @@ def authorized_only(func: Callable):
         if Config.is_sudo(user.id) or Config.is_owner(user.id):
             return await func(client, update, *args, **kwargs)
 
+        # Cek apakah user adalah peminta (requester) konten/lagu/film yang sedang diputar
+        from utils.queue import queue_manager
+        current_track = queue_manager.get_current_track(chat.id)
+        if current_track and getattr(current_track, "requested_by_id", 0) == user.id:
+            return await func(client, update, *args, **kwargs)
+
         # Cek apakah user ada dalam daftar khusus grup
         if user.id in get_authorized_users(chat.id):
             return await func(client, update, *args, **kwargs)

@@ -583,6 +583,7 @@ async def seek_command(client: Client, message: Message):
 
 
 @Client.on_callback_query(filters.regex(r"^seek:(\d+):([+-]?\d+)$"))
+@authorized_only
 async def seek_callback(client: Client, query: CallbackQuery):
     """Callback tombol seek di control panel video/film."""
     chat_id = int(query.matches[0].group(1))
