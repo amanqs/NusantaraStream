@@ -109,6 +109,7 @@ async def send_stream_log(
         clean_chat = clean_markdown(chat_title or "Voice Chat").replace("|", "\\|")
 
         is_tv_stream = (is_video or actual_track.is_video) and (actual_track.is_live or "iptv" in str(actual_track.channel).lower() or ".m3u8" in str(actual_track.url).lower())
+        is_cinema = "cinema" in str(actual_track.channel).lower() or "film" in str(actual_track.channel).lower()
 
         if is_radio:
             header_title = "📻 Log Siaran Radio Aktif"
@@ -124,6 +125,14 @@ async def send_stream_log(
             media_label = "📺 Saluran TV"
             stream_type = "📺 Live TV / IPTV 720p HD"
             dur_str = "🔴 Siaran Langsung (Live)"
+            title_display = f"`{clean_title}`"
+            media_part = ""
+        elif is_cinema:
+            header_title = "🎬 Log Pemutaran Film — Nusantara Cinema"
+            header_desc = "Film sedang diputar di obrolan suara"
+            media_label = "🎬 Judul Film"
+            stream_type = "🎬 Film HD 720p + Stereo Audio"
+            dur_str = get_readable_time(actual_track.duration) if actual_track.duration else "Tidak Diketahui"
             title_display = f"`{clean_title}`"
             media_part = ""
         elif is_video or actual_track.is_video:
