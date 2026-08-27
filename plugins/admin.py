@@ -16,11 +16,29 @@ import logging
 import glob
 import importlib
 import sys
+import json
+import re
+import math
+import random
+import platform
+import traceback
+import io
 
 try:
-    from kurigram import Client, filters
-    from kurigram.types import Message, ReplyParameters
-    from kurigram.enums import ParseMode, ChatMemberStatus
+    from kurigram import Client, filters, enums, types, errors
+    from kurigram.types import (
+        Message,
+        ReplyParameters,
+        InlineKeyboardMarkup,
+        InlineKeyboardButton,
+        CallbackQuery,
+        InputMediaPhoto,
+        InputMediaVideo,
+        InputMediaAudio,
+        InputMediaDocument,
+        LinkPreviewOptions,
+    )
+    from kurigram.enums import ParseMode, ChatMemberStatus, ChatType
     from kurigram.errors import (
         FloodWait,
         UserIsBlocked,
@@ -31,9 +49,20 @@ try:
         ChannelPrivate,
     )
 except ImportError:
-    from pyrogram import Client, filters
-    from pyrogram.types import Message, ReplyParameters
-    from pyrogram.enums import ParseMode, ChatMemberStatus
+    from pyrogram import Client, filters, enums, types, errors
+    from pyrogram.types import (
+        Message,
+        ReplyParameters,
+        InlineKeyboardMarkup,
+        InlineKeyboardButton,
+        CallbackQuery,
+        InputMediaPhoto,
+        InputMediaVideo,
+        InputMediaAudio,
+        InputMediaDocument,
+        LinkPreviewOptions,
+    )
+    from pyrogram.enums import ParseMode, ChatMemberStatus, ChatType
     try:
         from pyrogram.errors import (
             FloodWait,
@@ -77,6 +106,13 @@ from utils.formatters import (
 )
 from utils.rich_parser import RichParser
 from utils.database import db
+from utils.keyboards import (
+    ButtonStyle,
+    get_control_panel,
+    get_control_panel_video,
+    get_start_keyboard,
+    get_help_keyboard,
+)
 
 logger = logging.getLogger("NusantaraStream.Admin")
 
@@ -317,19 +353,15 @@ async def backup_db_command(client: Client, message: Message):
     size_str = human_readable_size(summary.get("size_bytes", 0))
 
     caption_card = (
-        f"| 💾 Cadangan Database — {Config.BOT_NAME} |\n"
-        f"|:---:|\n"
-        f"| Waktu Backup: `{now_str}` |\n\n"
-        f"| Metrik Database | Statistik Sistem |\n"
-        f"|:---|:---|\n"
-        f"| 👥 Pengguna Terlayani | `{u_cnt:,}` pengguna |\n"
-        f"| 📢 Grup Terlayani | `{c_cnt:,}` grup |\n"
-        f"| 🛡️ Sudo Admin | `{s_cnt}` admin |\n"
-        f"| 📂 Lagu Playlist | `{p_cnt:,}` lagu |\n"
-        f"| 💾 Ukuran Berkas | `{size_str}` |\n\n"
-        f"| 💡 Balas berkas ini dengan `/restore` untuk memulihkan database |\n"
-        f"|:---:|\n"
-        f"| |"
+        "💾 **Cadangan Database Nusantara Stream**\n"
+        f"🕒 *Waktu Backup:* `{now_str}`\n\n"
+        "**> 📊 Ringkasan Metrik Database:**\n"
+        f"**> 👥 Pengguna Terlayani :** `{u_cnt:,}` pengguna\n"
+        f"**> 📢 Grup Terlayani     :** `{c_cnt:,}` grup\n"
+        f"**> 🛡️ Sudo Admin        :** `{s_cnt}` admin\n"
+        f"**> 📂 Lagu di Playlist   :** `{p_cnt:,}` lagu\n"
+        f"**> 💾 Ukuran Berkas      :** `{size_str}`\n\n"
+        "💡 *Untuk memulihkan:* Balas berkas ini dengan `/restore`"
     )
 
     try:
@@ -991,7 +1023,7 @@ async def sysinfo_command(client: Client, message: Message):
     & ~filters.forwarded
 )
 async def eval_command(client: Client, message: Message):
-    """[Owner Only] Mengeksekusi Python script atau shell command secara langsung."""
+    """[Owner Only] Mengeksekusi Python script atau shell command secara langsung dengan lingkungan pre-imported lengkap."""
     if len(message.command) < 2:
         return await RichParser.reply(message, "ℹ️ **Format:** `/eval <kode_python>` atau `/sh <perintah_bash>`")
 
@@ -1015,10 +1047,7 @@ async def eval_command(client: Client, message: Message):
             await RichParser.edit(status_msg, f"❌ **Error:** `{e}`")
         return
 
-    import io
-    import sys
-    import traceback
-
+    # Output capture redirection
     old_stdout = sys.stdout
     old_stderr = sys.stderr
     redirected_output = io.StringIO()
@@ -1026,20 +1055,106 @@ async def eval_command(client: Client, message: Message):
     sys.stdout = redirected_output
     sys.stderr = redirected_error
 
+    reply = message.reply_to_message
+    from_u = message.from_user
+    mention_str = from_u.mention if from_u else "Pengguna"
+
+    # Pre-injected variables agar tidak perlu repot impor manual
+    eval_vars = {
+        # Core Telegram instances & aliases
+        "client": client,
+        "bot": client,
+        "app": client,
+        "c": client,
+        "message": message,
+        "m": message,
+        "msg": message,
+        "chat": message.chat,
+        "user": from_u,
+        "u": from_u,
+        "reply": reply,
+        "r": reply,
+        "mention": mention_str,
+        # Helper methods
+        "send": client.send_message,
+        "reply_text": message.reply_text,
+        # Core App Modules & Utilities
+        "db": db,
+        "Config": Config,
+        "config": Config,
+        "queue_manager": queue_manager,
+        "RichParser": RichParser,
+        "clean_markdown": clean_markdown,
+        "human_readable_size": human_readable_size,
+        "ButtonStyle": ButtonStyle,
+        "get_control_panel": get_control_panel,
+        "get_control_panel_video": get_control_panel_video,
+        "get_start_keyboard": get_start_keyboard,
+        "get_help_keyboard": get_help_keyboard,
+        # Telegram & Kurigram / Pyrogram Types, Enums & Errors
+        "Client": Client,
+        "filters": filters,
+        "enums": enums if "enums" in globals() else None,
+        "types": types if "types" in globals() else None,
+        "errors": errors if "errors" in globals() else None,
+        "ParseMode": ParseMode,
+        "ChatMemberStatus": ChatMemberStatus,
+        "ChatType": ChatType if "ChatType" in globals() else None,
+        "InlineKeyboardMarkup": InlineKeyboardMarkup,
+        "InlineKeyboardButton": InlineKeyboardButton,
+        "ReplyParameters": ReplyParameters,
+        "LinkPreviewOptions": LinkPreviewOptions,
+        "CallbackQuery": CallbackQuery,
+        "InputMediaPhoto": InputMediaPhoto,
+        "InputMediaVideo": InputMediaVideo,
+        "InputMediaAudio": InputMediaAudio,
+        "InputMediaDocument": InputMediaDocument,
+        # Standard Python Modules
+        "asyncio": asyncio,
+        "os": os,
+        "sys": sys,
+        "time": time,
+        "datetime": datetime,
+        "json": json,
+        "shutil": shutil,
+        "re": re,
+        "math": math,
+        "glob": glob,
+        "io": io,
+        "traceback": traceback,
+        "platform": platform,
+        "random": random,
+        "logging": logging,
+        "importlib": importlib,
+    }
+    # Tambahkan globals modul
+    eval_vars.update(globals())
+    # Pastikan variabel utama tetap sesuai request aktif
+    eval_vars["client"] = client
+    eval_vars["bot"] = client
+    eval_vars["app"] = client
+    eval_vars["message"] = message
+    eval_vars["mention"] = mention_str
+
     try:
-        # Check if single expression
+        # Eksekusi blok async function
+        exec_code = f"async def __ex():\n" + "\n".join(f"    {line}" for line in code.split("\n"))
         try:
-            result = eval(code)
-            if asyncio.iscoroutine(result):
-                result = await result
+            exec(exec_code, eval_vars)
+            func = eval_vars["__ex"]
+            result = await func()
             if result is not None:
                 print(repr(result))
-        except SyntaxError:
-            exec_code = f"async def __ex():\n" + "\n".join(f"    {line}" for line in code.split("\n"))
-            exec(exec_code)
-            result = await locals()["__ex"]()
-            if result is not None:
-                print(repr(result))
+        except Exception:
+            # Fallback ke evaluasi single expression
+            try:
+                result = eval(code, eval_vars)
+                if asyncio.iscoroutine(result):
+                    result = await result
+                if result is not None:
+                    print(repr(result))
+            except Exception:
+                raise
 
         output = redirected_output.getvalue() + redirected_error.getvalue()
         output = output.strip() or "Eksekusi berhasil (tanpa output return)."
