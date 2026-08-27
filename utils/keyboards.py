@@ -423,48 +423,89 @@ def get_start_keyboard(bot_username: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 
-def get_help_keyboard(current_tab: str = "main") -> InlineKeyboardMarkup:
-    """Membuat navigasi menu bantuan modular berbasis tab callback dengan ButtonStyle dinamis."""
-    def style(tab_name: str) -> ButtonStyle:
-        return ButtonStyle.SUCCESS if current_tab == tab_name else ButtonStyle.PRIMARY
+HELP_CATALOG = [
+    # Halaman 1: 9 Kategori (3x3 Grid)
+    ("🎵 Play", "help:play", "play"),
+    ("📂 Playlist", "help:playlist", "playlist"),
+    ("📦 Queue", "help:queue", "queue"),
+    ("🎛️ Kontrol", "help:control", "control"),
+    ("🎬 Film", "help:film", "film"),
+    ("🎥 Video", "help:video", "video"),
+    ("📺 Live TV", "help:tv", "tv"),
+    ("📻 Radio", "help:radio", "radio"),
+    ("⚡ Efek", "help:effects", "effects"),
+    # Halaman 2: 9 Kategori (3x3 Grid)
+    ("📥 Unduh", "help:download", "download"),
+    ("📜 Lirik", "help:lyrics", "lyrics"),
+    ("🔍 Search", "help:search", "search"),
+    ("🛡️ Admin", "help:admin", "admin"),
+    ("⚙️ Settings", "help:settings", "settings"),
+    ("🔐 Auth", "help:auth", "auth"),
+    ("👑 Sudo", "help:sudo", "sudo"),
+    ("🗄️ Owner", "help:owner", "owner"),
+    ("ℹ️ Info", "help:info", "info"),
+]
 
-    back_cb = "help:back_start" if current_tab == "main" else "help:main"
-    back_label = "🔙 Menu Start" if current_tab == "main" else "🔙 Panduan Utama"
+
+def get_help_keyboard(current_tab: str = "main", page: int = 1) -> InlineKeyboardMarkup:
+    """Membuat navigasi menu bantuan grid 3x3 dengan tombol Prev, Next, Back dan ButtonStyle dinamis."""
+    cat_keys = [c[2] for c in HELP_CATALOG]
+
+    # Jika sedang membuka sub-kategori spesifik
+    if current_tab in cat_keys:
+        idx = cat_keys.index(current_tab)
+        prev_idx = (idx - 1) % len(cat_keys)
+        next_idx = (idx + 1) % len(cat_keys)
+        parent_page = (idx // 9) + 1
+
+        prev_key = cat_keys[prev_idx]
+        next_key = cat_keys[next_idx]
+
+        keyboard = [
+            # Baris 1: Navigasi Prev | Kembali ke Grid | Next
+            [
+                InlineKeyboardButton("⬅️ Prev", callback_data=f"help:{prev_key}", style=ButtonStyle.PRIMARY),
+                InlineKeyboardButton("🔙 Menu Panduan", callback_data=f"help:page:{parent_page}", style=ButtonStyle.PRIMARY),
+                InlineKeyboardButton("Next ➡️", callback_data=f"help:{next_key}", style=ButtonStyle.PRIMARY),
+            ],
+            # Baris 2: Tutup
+            [
+                InlineKeyboardButton("🗑 Tutup Menu", callback_data="help:close", style=ButtonStyle.DANGER),
+            ],
+        ]
+        return InlineKeyboardMarkup(keyboard)
+
+    # Mode Grid 3x3 (Halaman 1 atau Halaman 2)
+    current_page = max(1, min(2, page))
+    start_idx = (current_page - 1) * 9
+    end_idx = start_idx + 9
+    page_items = HELP_CATALOG[start_idx:end_idx]
+
+    grid_rows = []
+    # 3 baris x 3 kolom
+    for i in range(0, len(page_items), 3):
+        row = []
+        for label, cb, key in page_items[i:i+3]:
+            row.append(InlineKeyboardButton(label, callback_data=cb, style=ButtonStyle.PRIMARY))
+        grid_rows.append(row)
+
+    # Baris Navigasi Prev | Status / Start | Next
+    if current_page == 1:
+        nav_row = [
+            InlineKeyboardButton("🔙 Start", callback_data="help:back_start", style=ButtonStyle.PRIMARY),
+            InlineKeyboardButton("📖 1/2", callback_data="help:page:1", style=ButtonStyle.SUCCESS),
+            InlineKeyboardButton("Next ➡️", callback_data="help:page:2", style=ButtonStyle.PRIMARY),
+        ]
+    else:
+        nav_row = [
+            InlineKeyboardButton("⬅️ Prev", callback_data="help:page:1", style=ButtonStyle.PRIMARY),
+            InlineKeyboardButton("📖 2/2", callback_data="help:page:2", style=ButtonStyle.SUCCESS),
+            InlineKeyboardButton("🔙 Start", callback_data="help:back_start", style=ButtonStyle.PRIMARY),
+        ]
 
     keyboard = [
-        # Baris 1: Audio & Playlist
-        [
-            InlineKeyboardButton("🎵 Audio Play", callback_data="help:play", style=style("play")),
-            InlineKeyboardButton("📂 Playlist & Queue", callback_data="help:playlist", style=style("playlist")),
-        ],
-        # Baris 2: Kontrol Player & Film
-        [
-            InlineKeyboardButton("🎛️ Kontrol Player", callback_data="help:control", style=style("control")),
-            InlineKeyboardButton("🎬 Film & Video", callback_data="help:video", style=style("video")),
-        ],
-        # Baris 3: Live TV/Radio & Efek Suara
-        [
-            InlineKeyboardButton("📺 Live TV & Radio", callback_data="help:live", style=style("live")),
-            InlineKeyboardButton("⚡ Efek Audio", callback_data="help:effects", style=style("effects")),
-        ],
-        # Baris 4: Downloader & Admin Grup
-        [
-            InlineKeyboardButton("📥 Download & Lirik", callback_data="help:download", style=style("download")),
-            InlineKeyboardButton("🛡️ Admin Grup", callback_data="help:admin", style=style("admin")),
-        ],
-        # Baris 5: Sudo & Owner
-        [
-            InlineKeyboardButton("👑 Sudo Server", callback_data="help:sudo", style=style("sudo")),
-            InlineKeyboardButton("🗄️ Owner & DB", callback_data="help:owner", style=style("owner")),
-        ],
-        # Baris 6: Info & Navigasi Utama
-        [
-            InlineKeyboardButton("ℹ️ Info Sistem", callback_data="help:info", style=style("info")),
-            InlineKeyboardButton(back_label, callback_data=back_cb, style=ButtonStyle.PRIMARY),
-        ],
-        # Baris 7: Tutup Menu
-        [
-            InlineKeyboardButton("🗑 Tutup Menu", callback_data="help:close", style=ButtonStyle.DANGER),
-        ],
+        *grid_rows,
+        nav_row,
+        [InlineKeyboardButton("🗑 Tutup Menu", callback_data="help:close", style=ButtonStyle.DANGER)],
     ]
     return InlineKeyboardMarkup(keyboard)

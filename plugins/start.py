@@ -252,13 +252,20 @@ async def help_callback_handler(client: Client, query: CallbackQuery):
         await query.answer()
         return
 
+    if action.startswith("page:"):
+        try:
+            page = int(action.split(":")[1])
+        except ValueError:
+            page = 1
+        action = f"page_{page}"
+
     db_stats = await db.get_db_stats()
     users_cnt = db_stats.get("users", 0)
     chats_cnt = db_stats.get("chats", 0)
 
     help_texts = {
         "play": (
-            f"| 🎵 Panduan Pemutaran Audio — {Config.BOT_NAME} |\n"
+            f"| 🎵 Panduan Audio Play — {Config.BOT_NAME} |\n"
             f"|:---:|\n"
             f"| Perintah memutar musik di Voice Chat |\n\n"
             f"| Perintah | Keterangan Fungsi |\n"
@@ -273,17 +280,29 @@ async def help_callback_handler(client: Client, query: CallbackQuery):
             f"| |"
         ),
         "playlist": (
-            f"| 📂 Panduan Playlist & Queue — {Config.BOT_NAME} |\n"
+            f"| 📂 Panduan Playlist — {Config.BOT_NAME} |\n"
             f"|:---:|\n"
-            f"| Manajemen daftar putar & antrean lagu |\n\n"
+            f"| Manajemen daftar putar lagu pribadi |\n\n"
             f"| Perintah | Keterangan Fungsi |\n"
             f"|:---|:---|\n"
             f"| `/playlist` / `/myplaylist` | Buka daftar playlist pribadi |\n"
             f"| `/save (judul/link)` | Simpan lagu ke playlist |\n"
             f"| `/playplaylist` | Putar semua lagu di playlist |\n"
-            f"| `/delplaylist (no)` | Hapus lagu dari playlist |\n"
-            f"| `/queue` / `/q` | Tampilkan antrean saat ini |\n"
-            f"| `/shuffle` | Acak urutan daftar antrean |\n\n"
+            f"| `/delplaylist (no)` | Hapus lagu dari playlist |\n\n"
+            f"| 🤖 Nusantara Stream 🤖 |\n"
+            f"|:---:|\n"
+            f"| |"
+        ),
+        "queue": (
+            f"| 📦 Panduan Queue & Antrean — {Config.BOT_NAME} |\n"
+            f"|:---:|\n"
+            f"| Pengaturan antrean pemutaran lagu |\n\n"
+            f"| Perintah | Keterangan Fungsi |\n"
+            f"|:---|:---|\n"
+            f"| `/queue` / `/q` | Tampilkan antrean lagu saat ini |\n"
+            f"| `/shuffle` | Acak urutan daftar antrean |\n"
+            f"| `/loop (1-10/off)` | Putar berulang lagu x kali |\n"
+            f"| `/np` / `/nowplaying` | Tampilkan kartu lagu aktif |\n\n"
             f"| 🤖 Nusantara Stream 🤖 |\n"
             f"|:---:|\n"
             f"| |"
@@ -291,28 +310,37 @@ async def help_callback_handler(client: Client, query: CallbackQuery):
         "control": (
             f"| 🎛️ Panduan Kontrol Player — {Config.BOT_NAME} |\n"
             f"|:---:|\n"
-            f"| Tombol navigasi dan pengaturan volume |\n\n"
+            f"| Tombol navigasi dan volume pemutar |\n\n"
             f"| Perintah | Keterangan Fungsi |\n"
             f"|:---|:---|\n"
-            f"| `/np` / `/nowplaying` | Tampilkan lagu yang diputar |\n"
             f"| `/pause` / `/resume` | Jeda atau lanjutkan media |\n"
             f"| `/skip` / `/next` | Lewati lagu ke berikutnya |\n"
             f"| `/stop` / `/end` | Hentikan pemutaran & reset |\n"
-            f"| `/loop (1-10/off)` | Putar ulang lagu saat ini |\n"
             f"| `/volume (1-200)` | Atur volume pemutaran musik |\n"
             f"| `/mute` / `/unmute` | Bisukan / aktifkan suara |\n\n"
             f"| 🤖 Nusantara Stream 🤖 |\n"
             f"|:---:|\n"
             f"| |"
         ),
-        "video": (
-            f"| 🎬 Panduan Film & Video — {Config.BOT_NAME} |\n"
+        "film": (
+            f"| 🎬 Panduan Film Bioskop — {Config.BOT_NAME} |\n"
             f"|:---:|\n"
-            f"| Streaming video 720p HD & bioskop di VC |\n\n"
+            f"| Streaming film dari channel privat di VC |\n\n"
             f"| Perintah | Keterangan Fungsi |\n"
             f"|:---|:---|\n"
             f"| `/film` / `/movie` | Buka katalog bioskop di VC |\n"
             f"| `/film (judul)` | Cari & putar film privat |\n"
+            f"| `/seek (detik)` / `/ff` | Lompat maju / mundur film |\n\n"
+            f"| 🤖 Nusantara Stream 🤖 |\n"
+            f"|:---:|\n"
+            f"| |"
+        ),
+        "video": (
+            f"| 🎥 Panduan Video HD — {Config.BOT_NAME} |\n"
+            f"|:---:|\n"
+            f"| Streaming video 720p HD di Voice Chat |\n\n"
+            f"| Perintah | Keterangan Fungsi |\n"
+            f"|:---|:---|\n"
             f"| `/vplay (judul/link)` | Putar video YouTube 720p |\n"
             f"| `/vplay` (balas video) | Putar berkas file video |\n"
             f"| `/vplayforce (judul)` | Putar video lewati antrean |\n"
@@ -321,15 +349,25 @@ async def help_callback_handler(client: Client, query: CallbackQuery):
             f"|:---:|\n"
             f"| |"
         ),
-        "live": (
-            f"| 📺 Panduan Live TV & Radio — {Config.BOT_NAME} |\n"
+        "tv": (
+            f"| 📺 Panduan Live TV — {Config.BOT_NAME} |\n"
             f"|:---:|\n"
-            f"| Siaran TV Nasional & Radio 24/7 di VC |\n\n"
+            f"| Siaran TV Nasional Indonesia di VC |\n\n"
             f"| Perintah | Keterangan Fungsi |\n"
             f"|:---|:---|\n"
             f"| `/tv` / `/iptv` | Menu Live TV & ganti channel |\n"
-            f"| `/tv (link m3u8)` | Putar siaran IPTV kustom |\n"
-            f"| `/radio` | Putar Radio 24/7 Nasional |\n"
+            f"| `/tv (link m3u8)` | Putar siaran IPTV kustom |\n\n"
+            f"| 🤖 Nusantara Stream 🤖 |\n"
+            f"|:---:|\n"
+            f"| |"
+        ),
+        "radio": (
+            f"| 📻 Panduan Radio 24/7 — {Config.BOT_NAME} |\n"
+            f"|:---:|\n"
+            f"| Streaming Radio Nasional nonstop di VC |\n\n"
+            f"| Perintah | Keterangan Fungsi |\n"
+            f"|:---|:---|\n"
+            f"| `/radio` | Putar siaran Radio 24/7 |\n"
             f"| `/autoplay (on/off)` | Putar rekomendasi otomatis |\n\n"
             f"| 🤖 Nusantara Stream 🤖 |\n"
             f"|:---:|\n"
@@ -338,7 +376,7 @@ async def help_callback_handler(client: Client, query: CallbackQuery):
         "effects": (
             f"| ⚡ Panduan Efek Audio — {Config.BOT_NAME} |\n"
             f"|:---:|\n"
-            f"| Modifikasi tempo & efek suara secara realtime |\n\n"
+            f"| Modifikasi tempo & efek suara realtime |\n\n"
             f"| Perintah | Keterangan Fungsi |\n"
             f"|:---|:---|\n"
             f"| `/speed (0.5-2.0)` | Ubah tempo lagu presisi |\n"
@@ -351,14 +389,35 @@ async def help_callback_handler(client: Client, query: CallbackQuery):
             f"| |"
         ),
         "download": (
-            f"| 📥 Panduan Download & Lirik — {Config.BOT_NAME} |\n"
+            f"| 📥 Panduan Unduh File — {Config.BOT_NAME} |\n"
             f"|:---:|\n"
-            f"| Unduh file lagu, video & pencarian lirik |\n\n"
+            f"| Unduh file MP3 & Video HD ke chat |\n\n"
             f"| Perintah | Keterangan Fungsi |\n"
             f"|:---|:---|\n"
             f"| `/song (judul/link)` | Unduh file MP3 320kbps + Art |\n"
-            f"| `/video (judul/link)` | Unduh video HD 720p MP4 |\n"
+            f"| `/video (judul/link)` | Unduh video HD 720p MP4 |\n\n"
+            f"| 🤖 Nusantara Stream 🤖 |\n"
+            f"|:---:|\n"
+            f"| |"
+        ),
+        "lyrics": (
+            f"| 📜 Panduan Lirik Lagu — {Config.BOT_NAME} |\n"
+            f"|:---:|\n"
+            f"| Pencarian lirik lagu jutaan judul |\n\n"
+            f"| Perintah | Keterangan Fungsi |\n"
+            f"|:---|:---|\n"
             f"| `/lyrics (judul)` | Cari & tampilkan lirik lagu |\n\n"
+            f"| 🤖 Nusantara Stream 🤖 |\n"
+            f"|:---:|\n"
+            f"| |"
+        ),
+        "search": (
+            f"| 🔍 Panduan Pencarian Inline — {Config.BOT_NAME} |\n"
+            f"|:---:|\n"
+            f"| Cari lagu via inline query di chat mana pun |\n\n"
+            f"| Format | Keterangan Fungsi |\n"
+            f"|:---|:---|\n"
+            f"| `@{Config.BOT_USERNAME} (judul)` | Cari lagu langsung di chat |\n\n"
             f"| 🤖 Nusantara Stream 🤖 |\n"
             f"|:---:|\n"
             f"| |"
@@ -366,21 +425,47 @@ async def help_callback_handler(client: Client, query: CallbackQuery):
         "admin": (
             f"| 🛡️ Panduan Admin Grup — {Config.BOT_NAME} |\n"
             f"|:---:|\n"
-            f"| Pengaturan hak akses & preferensi grup |\n\n"
+            f"| Pengaturan hak akses di Voice Chat |\n\n"
             f"| Perintah | Keterangan Fungsi |\n"
             f"|:---|:---|\n"
             f"| `/settings` | Panel preferensi grup interaktif |\n"
             f"| `/auth (reply/id)` | Beri izin non-admin kontrol |\n"
             f"| `/unauth (reply/id)` | Cabut izin kontrol member |\n"
             f"| `/authlist` | Daftar user terotorisasi |\n\n"
-            f"| ℹ️ Peminta lagu otomatis memiliki hak kontrol media miliknya |\n"
+            f"| 🤖 Nusantara Stream 🤖 |\n"
+            f"|:---:|\n"
+            f"| |"
+        ),
+        "settings": (
+            f"| ⚙️ Panduan Settings Grup — {Config.BOT_NAME} |\n"
+            f"|:---:|\n"
+            f"| Konfigurasi preferensi pemutar di grup |\n\n"
+            f"| Perintah | Keterangan Fungsi |\n"
+            f"|:---|:---|\n"
+            f"| `/settings` | Buka panel pengaturan grup |\n"
+            f"| ℹ️ Fitur | Mode Admin, CleanMode, PlayType |\n\n"
+            f"| 🤖 Nusantara Stream 🤖 |\n"
+            f"|:---:|\n"
+            f"| |"
+        ),
+        "auth": (
+            f"| 🔐 Panduan Otorisasi — {Config.BOT_NAME} |\n"
+            f"|:---:|\n"
+            f"| Kelola user yang berhak mengontrol pemutar |\n\n"
+            f"| Perintah | Keterangan Fungsi |\n"
+            f"|:---|:---|\n"
+            f"| `/auth (reply/id)` | Tambah user ke daftar auth |\n"
+            f"| `/unauth (reply/id)` | Hapus user dari daftar auth |\n"
+            f"| `/authlist` | Tampilkan user terotorisasi |\n"
+            f"| ℹ️ Catatan | Peminta lagu otomatis bisa kontrol |\n\n"
+            f"| 🤖 Nusantara Stream 🤖 |\n"
             f"|:---:|\n"
             f"| |"
         ),
         "sudo": (
-            f"| 👑 Panduan Sudo & Server — {Config.BOT_NAME} |\n"
+            f"| 👑 Panduan Sudo Admin — {Config.BOT_NAME} |\n"
             f"|:---:|\n"
-            f"| Kontrol level pengembang & manajemen sistem |\n\n"
+            f"| Manajemen server & operasional bot |\n\n"
             f"| Perintah | Keterangan Fungsi |\n"
             f"|:---|:---|\n"
             f"| `/broadcast` | Broadcast ke semua user & grup |\n"
@@ -398,7 +483,7 @@ async def help_callback_handler(client: Client, query: CallbackQuery):
         "owner": (
             f"| 🗄️ Panduan Owner & Database — {Config.BOT_NAME} |\n"
             f"|:---:|\n"
-            f"| Akses kontrol pemilik & database SQLite |\n\n"
+            f"| Akses database SQLite & eksekusi kode |\n\n"
             f"| Perintah | Keterangan Fungsi |\n"
             f"|:---|:---|\n"
             f"| `/backup` | Unduh database SQLite .db |\n"
@@ -431,11 +516,13 @@ async def help_callback_handler(client: Client, query: CallbackQuery):
 
     # Backward compatibility aliases
     help_texts["music"] = help_texts["play"]
+    help_texts["live"] = help_texts["tv"]
 
+    cur_page = 2 if action == "page_2" else 1
     main_help_text = (
         f"| 🤖 Panduan Penggunaan — {Config.BOT_NAME} |\n"
         f"|:---:|\n"
-        f"| Pilih kategori menu di bawah untuk melihat perintah lengkap |\n\n"
+        f"| Pilih kategori menu di bawah (Halaman {cur_page}/2) |\n\n"
         f"| Statistik Sistem | Detail Jumlah |\n"
         f"|:---|:---|\n"
         f"| 📢 Served Chats | `{chats_cnt:,} grup` |\n"
@@ -446,8 +533,13 @@ async def help_callback_handler(client: Client, query: CallbackQuery):
         f"| |"
     )
 
-    selected_text = help_texts.get(action, main_help_text)
-    markup = get_help_keyboard(action)
+    if action in help_texts:
+        selected_text = help_texts[action]
+        markup = get_help_keyboard(action)
+    else:
+        selected_text = main_help_text
+        markup = get_help_keyboard("main", page=cur_page)
+
     try:
         await RichParser.edit(
             query,
