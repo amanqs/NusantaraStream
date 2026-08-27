@@ -399,13 +399,18 @@ def parse_rich_text_and_buttons(raw_text: str):
         return "", None
 
     try:
-        from kurigram.types import InlineKeyboardMarkup, InlineKeyboardButton
+        from kurigram.types import InlineKeyboardMarkup, InlineKeyboardButton, CopyTextButton
     except ImportError:
         try:
             from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+            try:
+                from pyrogram.types import CopyTextButton
+            except ImportError:
+                CopyTextButton = None
         except ImportError:
             InlineKeyboardMarkup = None
             InlineKeyboardButton = None
+            CopyTextButton = None
 
     from utils.keyboards import ButtonStyle
 
@@ -418,8 +423,9 @@ def parse_rich_text_and_buttons(raw_text: str):
     for line in lines:
         stripped = line.strip()
         matches = btn_pattern.findall(stripped)
-        # Jika satu baris hanya berisi kumpulan tombol [[...]]
-        if matches and stripped.startswith("[[") and stripped.endswith("]]"):
+        # Cek apakah baris ini sepenuhnya tersusun dari tombol [[...]]
+        remaining = btn_pattern.sub("", stripped).strip()
+        if matches and not remaining:
             if InlineKeyboardMarkup and InlineKeyboardButton:
                 row = []
                 for match in matches:
@@ -433,11 +439,22 @@ def parse_rich_text_and_buttons(raw_text: str):
                         style = ButtonStyle.SUCCESS
                     elif style_str in ("danger", "red", "bahaya"):
                         style = ButtonStyle.DANGER
+                    elif style_str in ("primary", "blue", "biru"):
+                        style = ButtonStyle.PRIMARY
 
                     if data.startswith("http://") or data.startswith("https://"):
                         row.append(InlineKeyboardButton(label, url=data))
                     elif data.startswith("url:"):
                         row.append(InlineKeyboardButton(label, url=data[4:].strip()))
+                    elif data.startswith("copy:"):
+                        copy_val = data[5:].strip()
+                        if CopyTextButton:
+                            try:
+                                row.append(InlineKeyboardButton(label, copy_text=CopyTextButton(text=copy_val), style=style))
+                            except Exception:
+                                row.append(InlineKeyboardButton(label, callback_data=data, style=style))
+                        else:
+                            row.append(InlineKeyboardButton(label, callback_data=data, style=style))
                     else:
                         row.append(InlineKeyboardButton(label, callback_data=data, style=style))
                 if row:

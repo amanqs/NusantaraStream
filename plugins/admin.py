@@ -1035,7 +1035,12 @@ async def preview_handler(client: Client, message: Message):
             "|:---|:---|\n"
             "| `/preview <teks_format>` | Uji langsung teks dengan tabel/quote/tombol |\n"
             "| `/preview` (balas pesan) | Uji teks dari pesan yang dibalas |\n\n"
-            "| 💡 Mendukung: Tabel `|`, Quote `>`, Tombol `[[Label|data|style]]` |\n"
+            "| 💡 Contoh Sintaks Tombol: |\n"
+            "|:---|:---|\n"
+            "| `[[📋 Salin DANA|copy:085718366690|success]]` |\n"
+            "| `[[🌐 Website|https://github.com/amanqs]]` |\n"
+            "| `[[↩️ Kembali|cb_pay|danger]] [[🗑 Tutup|close]]` |\n\n"
+            "| 🤖 Nusantara Stream 🤖 |\n"
             "|:---:|\n"
             "| |",
         )
@@ -1048,8 +1053,46 @@ async def preview_handler(client: Client, message: Message):
     if not target_text:
         return await RichParser.reply(message, "⚠️ **Tidak ada teks format yang ditemukan untuk diuji.**")
 
+    # Variable substitution
+    from_u = message.from_user
+    mention_str = from_u.mention if from_u else "Pengguna"
+    name_str = from_u.first_name if from_u else "Pengguna"
+    u_id = str(from_u.id) if from_u else "0"
+    chat_id = str(message.chat.id)
+
+    target_text = (
+        target_text.replace("{mention}", mention_str)
+        .replace("{name}", name_str)
+        .replace("{user}", mention_str)
+        .replace("{user_id}", u_id)
+        .replace("{id}", u_id)
+        .replace("{chat_id}", chat_id)
+        .replace("{bot_name}", Config.BOT_NAME)
+        .replace("{bot_username}", Config.BOT_USERNAME)
+    )
+
     clean_content, markup = parse_rich_text_and_buttons(target_text)
+    if not markup and message.reply_to_message and getattr(message.reply_to_message, "reply_markup", None):
+        markup = message.reply_to_message.reply_markup
+
     return await RichParser.reply(message, clean_content, reply_markup=markup)
+
+
+@Client.on_callback_query(filters.regex(r"^copy:(.+)"))
+async def copy_callback_handler(client: Client, query: CallbackQuery):
+    """Handler tombol copy inline untuk menyalin teks/nomor dengan popup alert."""
+    copy_text = query.data.split(":", 1)[1]
+    await query.answer(f"📋 Disalin:\n{copy_text}", show_alert=True)
+
+
+@Client.on_callback_query(filters.regex(r"^(close|cb_close)$"))
+async def close_callback_handler(client: Client, query: CallbackQuery):
+    """Handler tombol tutup pesan interaktif."""
+    try:
+        await query.message.delete()
+    except Exception:
+        pass
+    await query.answer("Menu ditutup.")
 
 
 @Client.on_message(
