@@ -424,69 +424,47 @@ def get_start_keyboard(bot_username: str) -> InlineKeyboardMarkup:
 
 
 def get_help_keyboard(current_tab: str = "main") -> InlineKeyboardMarkup:
-    """Membuat navigasi menu bantuan berbasis tab callback dengan ButtonStyle dinamis & terorganisir."""
-    music_style = ButtonStyle.SUCCESS if current_tab == "music" else ButtonStyle.PRIMARY
-    video_style = ButtonStyle.SUCCESS if current_tab == "video" else ButtonStyle.PRIMARY
-    eff_style = ButtonStyle.SUCCESS if current_tab == "effects" else ButtonStyle.PRIMARY
-    admin_style = ButtonStyle.SUCCESS if current_tab == "admin" else ButtonStyle.PRIMARY
-    sudo_style = ButtonStyle.SUCCESS if current_tab == "sudo" else ButtonStyle.PRIMARY
-    info_style = ButtonStyle.SUCCESS if current_tab == "info" else ButtonStyle.PRIMARY
+    """Membuat navigasi menu bantuan modular berbasis tab callback dengan ButtonStyle dinamis."""
+    def style(tab_name: str) -> ButtonStyle:
+        return ButtonStyle.SUCCESS if current_tab == tab_name else ButtonStyle.PRIMARY
 
     back_cb = "help:back_start" if current_tab == "main" else "help:main"
-    back_label = "🔙 Menu Utama" if current_tab == "main" else "🔙 Panduan Utama"
+    back_label = "🔙 Menu Start" if current_tab == "main" else "🔙 Panduan Utama"
 
     keyboard = [
-        # Baris 1: Media Utama
+        # Baris 1: Audio & Playlist
         [
-            InlineKeyboardButton(
-                "🎵 Musik & Audio",
-                callback_data="help:music",
-                style=music_style,
-            ),
-            InlineKeyboardButton(
-                "🎬 Video Stream",
-                callback_data="help:video",
-                style=video_style,
-            ),
+            InlineKeyboardButton("🎵 Audio Play", callback_data="help:play", style=style("play")),
+            InlineKeyboardButton("📂 Playlist & Queue", callback_data="help:playlist", style=style("playlist")),
         ],
-        # Baris 2: Efek Suara & Admin Grup
+        # Baris 2: Kontrol Player & Film
         [
-            InlineKeyboardButton(
-                "⚡ Efek Audio",
-                callback_data="help:effects",
-                style=eff_style,
-            ),
-            InlineKeyboardButton(
-                "🛡️ Admin Grup",
-                callback_data="help:admin",
-                style=admin_style,
-            ),
+            InlineKeyboardButton("🎛️ Kontrol Player", callback_data="help:control", style=style("control")),
+            InlineKeyboardButton("🎬 Film & Video", callback_data="help:video", style=style("video")),
         ],
-        # Baris 3: Sudo & Info
+        # Baris 3: Live TV/Radio & Efek Suara
         [
-            InlineKeyboardButton(
-                "👑 Sudo & Owner",
-                callback_data="help:sudo",
-                style=sudo_style,
-            ),
-            InlineKeyboardButton(
-                "ℹ️ Info Sistem",
-                callback_data="help:info",
-                style=info_style,
-            ),
+            InlineKeyboardButton("📺 Live TV & Radio", callback_data="help:live", style=style("live")),
+            InlineKeyboardButton("⚡ Efek Audio", callback_data="help:effects", style=style("effects")),
         ],
-        # Baris 4: Navigasi Kembali & Tutup
+        # Baris 4: Downloader & Admin Grup
         [
-            InlineKeyboardButton(
-                back_label,
-                callback_data=back_cb,
-                style=ButtonStyle.PRIMARY,
-            ),
-            InlineKeyboardButton(
-                "🗑 Tutup Menu",
-                callback_data="help:close",
-                style=ButtonStyle.DANGER,
-            ),
+            InlineKeyboardButton("📥 Download & Lirik", callback_data="help:download", style=style("download")),
+            InlineKeyboardButton("🛡️ Admin Grup", callback_data="help:admin", style=style("admin")),
+        ],
+        # Baris 5: Sudo & Owner
+        [
+            InlineKeyboardButton("👑 Sudo Server", callback_data="help:sudo", style=style("sudo")),
+            InlineKeyboardButton("🗄️ Owner & DB", callback_data="help:owner", style=style("owner")),
+        ],
+        # Baris 6: Info & Navigasi Utama
+        [
+            InlineKeyboardButton("ℹ️ Info Sistem", callback_data="help:info", style=style("info")),
+            InlineKeyboardButton(back_label, callback_data=back_cb, style=ButtonStyle.PRIMARY),
+        ],
+        # Baris 7: Tutup Menu
+        [
+            InlineKeyboardButton("🗑 Tutup Menu", callback_data="help:close", style=ButtonStyle.DANGER),
         ],
     ]
     return InlineKeyboardMarkup(keyboard)
