@@ -182,7 +182,7 @@ def _get_film_catalog_keyboard(
     # Tombol Refresh & Tutup
     keyboard.append([
         InlineKeyboardButton("🔄 Refresh Katalog", callback_data="film_refresh", style=ButtonStyle.SUCCESS),
-        InlineKeyboardButton("❌ Tutup", callback_data="close_menu", style=ButtonStyle.DANGER),
+        InlineKeyboardButton("❌ Tutup", callback_data="film_close", style=ButtonStyle.DANGER),
     ])
 
     return InlineKeyboardMarkup(keyboard)
@@ -420,9 +420,43 @@ async def film_play_callback(client: Client, query: CallbackQuery):
 
         if not os.path.exists(local_path):
             try:
+                import time as _time
+                total_size = film.get("file_size") or 0
+                last_update = [0.0]  # mutable for closure
+
+                async def _progress(current: int, total: int):
+                    nonlocal last_update
+                    now = _time.time()
+                    if now - last_update[0] < 3.5:
+                        return
+                    last_update[0] = now
+                    pct = int(current / total * 100) if total else 0
+                    filled = pct // 5
+                    bar = "▓" * filled + "░" * (20 - filled)
+                    dl_card = (
+                        f"| 🎬 Mengunduh Film... |\n"
+                        f"|:---:|\n"
+                        f"| {clean_markdown(film['title'][:45])} |\n\n"
+                        f"| Detail | Info |\n"
+                        f"|:---|:---|\n"
+                        f"| 📊 Progress | `[{bar}] {pct}%` |\n"
+                        f"| 📥 Terunduh | `{human_readable_size(current)}` / `{human_readable_size(total)}` |\n"
+                        f"| 📦 Total Size | `{human_readable_size(total_size)}` |\n"
+                        f"| ⏳ Status | Harap tunggu sebentar... |"
+                    )
+                    try:
+                        await RichParser.edit(
+                            query.message,
+                            dl_card,
+                            link_preview_options=LinkPreviewOptions(is_disabled=True),
+                        )
+                    except Exception:
+                        pass
+
                 await userbot_client.download_media(
                     film["file_id"],
                     file_name=local_path,
+                    progress=_progress,
                 )
             except Exception as dl_err:
                 logger.error(f"Gagal download film '{film['title']}': {dl_err}")
@@ -486,3 +520,25 @@ async def film_play_callback(client: Client, query: CallbackQuery):
             )
         except Exception:
             await query.answer(f"❌ Gagal memutar film: {str(e)[:100]}", show_alert=True)
+
+
+# ─────────────────────────────────────────────
+#  CALLBACKS — TUTUP MENU
+# ─────────────────────────────────────────────
+
+@Client.on_callback_query(filters.regex(r"^film_close$"))
+async def film_close_callback(client: Client, query: CallbackQuery):
+    """Menghapus/menutup pesan menu film."""
+    try:
+        await query.message.delete()
+    except Exception:
+        await query.answer("Pesan tidak dapat dihapus.", show_alert=False)
+
+
+@Client.on_callback_query(filters.regex(r"^close_menu$"))
+async def close_menu_callback(client: Client, query: CallbackQuery):
+    """Handler universal tombol tutup/close untuk semua menu bot."""
+    try:
+        await query.message.delete()
+    except Exception:
+        await query.answer("Pesan tidak dapat dihapus.", show_alert=False)
