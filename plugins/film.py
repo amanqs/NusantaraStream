@@ -87,7 +87,7 @@ async def _fetch_film_catalog(force_refresh: bool = False) -> list[dict]:
                 "mime_type": mime,
                 "date": msg.date,
                 "caption": caption[:300],
-                "thumb": getattr(media, "thumbs", [{}])[0].get("file_id") if getattr(media, "thumbs", None) else None,
+                "thumb": getattr(media.thumbs[0], "file_id", None) if getattr(media, "thumbs", None) else None,
             })
     except Exception as e:
         logger.error(f"Gagal mengambil katalog film dari channel: {e}")
