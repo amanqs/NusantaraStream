@@ -402,28 +402,31 @@ class TestNusantaraStreamComponents(unittest.TestCase):
         self.assertIsNotNone(kb)
 
     def test_tv_and_iptv_system(self):
-        from plugins.tv import TV_CHANNELS, CATEGORIES, get_tv_keyboard, format_tv_menu_card
+        from utils.iptv_manager import iptv_manager
+        from plugins.tv import TV_CATEGORIES, get_tv_browser_keyboard, format_tv_menu_card
 
-        self.assertGreater(len(TV_CHANNELS), 8)
-        self.assertIn("tvri_nasional", TV_CHANNELS)
-        self.assertIn("kompas_tv", TV_CHANNELS)
-        self.assertIn("tvri_sport", TV_CHANNELS)
-        self.assertIn("makkah_live", TV_CHANNELS)
+        sample_m3u = """#EXTM3U
+#EXTINF:-1 tvg-id="TVRINasional.id" tvg-logo="https://example.com/logo.png" group-title="General",TVRI Nasional HD
+https://example.com/tvri.m3u8
+#EXTINF:-1 tvg-id="KompasTV.id" tvg-logo="https://example.com/kompas.png" group-title="News",Kompas TV HD
+https://example.com/kompas.m3u8
+"""
+        parsed = iptv_manager.parse_m3u(sample_m3u)
+        self.assertEqual(len(parsed), 2)
+        self.assertEqual(parsed[0]["title"], "TVRI Nasional HD")
+        self.assertEqual(parsed[0]["url"], "https://example.com/tvri.m3u8")
+        self.assertEqual(parsed[1]["title"], "Kompas TV HD")
 
-        card = format_tv_menu_card("nasional")
+        card = format_tv_menu_card("indonesia", total_channels=len(parsed), page=1)
         self.assertIn("Siaran Live TV & IPTV Indonesia 24/7", card)
-        self.assertIn("Berita & Nasional", card)
+        self.assertIn("Indonesia", card)
 
-        kb = get_tv_keyboard("nasional")
+        kb = get_tv_browser_keyboard("indonesia", parsed, page=1)
         self.assertIsNotNone(kb)
         self.assertTrue(len(kb.inline_keyboard) >= 3)
 
-        # Test other categories
-        for cat_id, _ in CATEGORIES:
-            kb_cat = get_tv_keyboard(cat_id)
-            self.assertIsNotNone(kb_cat)
-            card_cat = format_tv_menu_card(cat_id)
-            self.assertIn("Siaran Live TV & IPTV", card_cat)
+        # Test categories
+        self.assertGreater(len(TV_CATEGORIES), 4)
 
     def test_inline_queries(self):
         from plugins.inline import inline_search_handler
