@@ -17,6 +17,15 @@ import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", message=".*Python.*deprecated.*")
 
+# Patch global PyTgCalls circular recursion bug
+try:
+    from pytgcalls.types.py_object import PyObject
+    PyObject.default = staticmethod(lambda obj: repr(obj))
+    PyObject.__str__ = lambda self: f"<{self.__class__.__name__}>"
+    PyObject.__repr__ = lambda self: f"<{self.__class__.__name__}>"
+except Exception:
+    pass
+
 from config import Config
 from core.bot import bot_client
 from core.userbot import userbot_client

@@ -46,6 +46,7 @@ try:
     # Patch PyObject recursion bug in PyTgCalls v2
     try:
         from pytgcalls.types.py_object import PyObject
+        PyObject.default = staticmethod(lambda obj: repr(obj))
         PyObject.__str__ = lambda self: f"<{self.__class__.__name__}>"
         PyObject.__repr__ = lambda self: f"<{self.__class__.__name__}>"
     except Exception:
