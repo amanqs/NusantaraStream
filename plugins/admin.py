@@ -23,6 +23,11 @@ import random
 import platform
 import traceback
 import io
+import sqlite3
+import socket
+import gc
+import collections
+from collections import Counter
 
 try:
     from kurigram import Client, filters, enums, types, errors
@@ -1275,6 +1280,11 @@ async def eval_command(client: Client, message: Message):
         "random": random,
         "logging": logging,
         "importlib": importlib,
+        "sqlite3": sqlite3,
+        "socket": socket,
+        "gc": gc,
+        "collections": collections,
+        "Counter": Counter,
     }
     # Tambahkan globals modul
     eval_vars.update(globals())
