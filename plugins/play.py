@@ -39,7 +39,7 @@ from utils.keyboards import (
 )
 from utils.queue import queue_manager, TrackInfo
 from utils.ytdl import ytdl_helper
-from utils.decorators import bot_admin_check
+from utils.decorators import bot_admin_check, BOT
 from utils.rich_parser import RichParser
 from utils.card_generator import get_now_playing_card_path
 from utils.database import db
@@ -50,10 +50,7 @@ logger = logging.getLogger("NusantaraStream.Play")
 SEARCH_CACHE: dict[str, list[dict]] = {}
 
 
-@Client.on_message(
-    filters.command(["play", "vplay", "cplay", "stream", "vstream"])
-    & ~filters.forwarded
-)
+@BOT("play", "vplay", "cplay", "stream", "vstream")
 @bot_admin_check
 async def play_command_handler(client: Client, message: Message):
     """Handler utama untuk perintah /play, /vplay, dan streaming."""
@@ -391,7 +388,7 @@ async def process_track_playback(
         )
 
 
-@Client.on_callback_query(filters.regex(r"^search_nav:(\d+):(\d+)"))
+@BOT.on_callback_query(filters.regex(r"^search_nav:(\d+):(\d+)"))
 async def search_carousel_navigation(client: Client, query: CallbackQuery):
     """Handler navigasi geser (carousel) hasil pencarian YouTube."""
     data = query.data.split(":")
@@ -455,7 +452,7 @@ async def search_carousel_navigation(client: Client, query: CallbackQuery):
     await query.answer()
 
 
-@Client.on_callback_query(filters.regex(r"^play_select:(\d+):(\d+):([av])"))
+@BOT.on_callback_query(filters.regex(r"^play_select:(\d+):(\d+):([av])"))
 async def search_play_select_callback(client: Client, query: CallbackQuery):
     """Handler pemilihan format Audio / Video untuk diputar di Voice Chat."""
     data = query.data.split(":")
@@ -535,13 +532,13 @@ async def search_play_select_callback(client: Client, query: CallbackQuery):
             await RichParser.edit(query, err_msg)
 
 
-@Client.on_callback_query(filters.regex(r"^play_search:(\d+):(\d+):([av])"))
+@BOT.on_callback_query(filters.regex(r"^play_search:(\d+):(\d+):([av])"))
 async def search_selection_callback(client: Client, query: CallbackQuery):
     """Handler backward compatibility pemilihan lagu."""
     return await search_play_select_callback(client, query)
 
 
-@Client.on_callback_query(filters.regex(r"^cancel_search:(\d+)"))
+@BOT.on_callback_query(filters.regex(r"^cancel_search:(\d+)"))
 async def cancel_search_callback(client: Client, query: CallbackQuery):
     """Handler pembatalan menu pencarian."""
     requester_id = int(query.data.split(":")[1])

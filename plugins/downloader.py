@@ -31,6 +31,7 @@ from config import Config
 from utils.ytdl import YTDL_BASE_OPTIONS, ytdl_helper
 from utils.formatters import clean_markdown, get_readable_time, human_readable_size
 from utils.rich_parser import RichParser
+from utils.decorators import BOT
 
 logger = logging.getLogger("NusantaraStream.Downloader")
 
@@ -96,7 +97,7 @@ def tag_mp3_metadata(file_path: str, title: str, artist: str, thumb_path: str = 
         logger.debug(f"Mutagen tagging error: {e}")
 
 
-@Client.on_message(filters.command(["song", "mp3", "music"]) & ~filters.forwarded)
+@BOT("song", "mp3", "music")
 async def song_downloader_command(client: Client, message: Message):
     """Handler perintah /song untuk mengunduh lagu MP3 dari YouTube langsung ke Telegram."""
     if len(message.command) < 2:
@@ -208,7 +209,7 @@ async def song_downloader_command(client: Client, message: Message):
         await RichParser.edit(status_msg, f"❌ **Gagal:** `{clean_markdown(str(e))}`")
 
 
-@Client.on_message(filters.command(["video", "mp4", "vdownload"]) & ~filters.forwarded)
+@BOT("video", "mp4", "vdownload")
 async def video_downloader_command(client: Client, message: Message):
     """Handler perintah /video untuk mengunduh video MP4 dari YouTube langsung ke Telegram."""
     if len(message.command) < 2:

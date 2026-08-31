@@ -22,15 +22,37 @@ from utils.keyboards import get_start_keyboard, get_help_keyboard
 from utils.formatters import clean_markdown
 from utils.rich_parser import RichParser
 from utils.database import db
+from utils.decorators import BOT
 
 START_TIME = time.time()
 
-@Client.on_message(filters.command(["start"]) & ~filters.forwarded)
+@BOT("start")
 async def start_handler(client: Client, message: Message):
     """Handler perintah /start bergaya Native Blockquote Telegram."""
     chat = message.chat
     user = message.from_user
     user_name = clean_markdown(user.first_name if user and user.first_name else "Pengguna")
+
+    # Cek apakah user berstatus Global Banned (GBan)
+    if user and db.is_user_gbanned(user.id):
+        g_info = await db.get_gban_user(user.id)
+        reason = g_info.get("reason", "Pelanggaran aturan sistem") if g_info else "Pelanggaran aturan sistem"
+        b_date = g_info.get("banned_date", "-") if g_info else "-"
+        ban_card = (
+            "| 🚫 Akses Pengguna Ditolak |\n"
+            "|:---:|\n"
+            "| Akun Anda telah dilarang secara global (GBan) |\n\n"
+            "| Detail Pemblokiran | Informasi |\n"
+            "|:---|:---|\n"
+            f"| 🆔 User ID | `{user.id}` |\n"
+            f"| 📝 Alasan | {clean_markdown(reason)} |\n"
+            f"| 🕒 Tanggal | `{b_date}` |\n"
+            f"| 🛡 Status | Global Blacklisted |\n\n"
+            "| ⚠️ Hubungi Owner Bot jika Anda merasa ini adalah kesalahan. |\n"
+            "|:---:|\n"
+            "| |"
+        )
+        return await RichParser.reply(message, ban_card)
 
     # Rekam user / grup ke database
     if user:
@@ -133,7 +155,7 @@ async def start_handler(client: Client, message: Message):
     )
 
 
-@Client.on_message(filters.command(["help"]) & ~filters.forwarded)
+@BOT("help")
 async def help_handler(client: Client, message: Message):
     """Handler perintah /help bergaya Telegram Pure Markdown Table Card."""
     if message.from_user:
@@ -168,7 +190,7 @@ async def help_handler(client: Client, message: Message):
     )
 
 
-@Client.on_message(filters.command(["ping", "stats"]) & ~filters.forwarded)
+@BOT("ping", "stats")
 async def ping_handler(client: Client, message: Message):
     """Handler perintah /ping & /stats untuk cek latensi & statistik bot bergaya Table Card."""
     start = time.time()
@@ -203,7 +225,7 @@ async def ping_handler(client: Client, message: Message):
     await RichParser.edit(reply, text)
 
 
-@Client.on_callback_query(filters.regex(r"^help:(.+)"))
+@BOT.on_callback_query(filters.regex(r"^help:(.+)"))
 async def help_callback_handler(client: Client, query: CallbackQuery):
     """Handler navigasi tab bantuan via callback inline dengan Rich Markdown Table Card."""
     action = query.data.split(":", 1)[1]
@@ -468,6 +490,9 @@ async def help_callback_handler(client: Client, query: CallbackQuery):
             f"| Manajemen server & operasional bot |\n\n"
             f"| Perintah | Keterangan Fungsi |\n"
             f"|:---|:---|\n"
+            f"| `/gban (user) (alasan)` | Global ban user di semua grup |\n"
+            f"| `/ungban (user)` | Cabut status global ban |\n"
+            f"| `/gbanlist` | Daftar pengguna di-GBan |\n"
             f"| `/broadcast` | Broadcast ke semua user & grup |\n"
             f"| `/activevc` | Cek Voice Chat aktif berjalan |\n"
             f"| `/clean` | Bersihkan berkas cache server |\n"

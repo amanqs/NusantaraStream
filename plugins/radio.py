@@ -24,7 +24,7 @@ from utils.queue import queue_manager, TrackInfo
 from utils.formatters import clean_markdown, format_now_playing
 from utils.keyboards import get_control_panel, resolve_style, ButtonStyle
 from utils.rich_parser import RichParser
-from utils.decorators import bot_admin_check
+from utils.decorators import bot_admin_check, BOT
 from utils.log_helper import send_stream_log
 
 logger = logging.getLogger("NusantaraStream.Radio")
@@ -125,7 +125,7 @@ def get_radio_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(buttons)
 
 
-@Client.on_message(filters.command(["radio", "live"]) & ~filters.forwarded)
+@BOT("radio", "live")
 @bot_admin_check
 async def radio_menu_command(client: Client, message: Message):
     """Handler perintah /radio untuk memilih dan memutar radio siaran langsung 24/7."""
@@ -157,7 +157,7 @@ async def radio_menu_command(client: Client, message: Message):
     await RichParser.reply(message, card, reply_markup=markup)
 
 
-@Client.on_callback_query(filters.regex(r"^radio_play:(.+)"))
+@BOT.on_callback_query(filters.regex(r"^radio_play:(.+)"))
 async def radio_play_callback(client: Client, query: CallbackQuery):
     """Handler callback tombol radio untuk langsung memutar siaran di Voice Chat."""
     station_id = query.data.split(":")[1]

@@ -35,7 +35,7 @@ from utils.queue import queue_manager, TrackInfo
 from utils.formatters import clean_markdown, get_readable_time, human_readable_size
 from utils.keyboards import get_control_panel, get_control_panel_video, resolve_style
 from utils.rich_parser import RichParser
-from utils.decorators import bot_admin_check
+from utils.decorators import bot_admin_check, BOT
 from utils.log_helper import send_stream_log
 
 logger = logging.getLogger("NusantaraStream.Film")
@@ -246,9 +246,9 @@ def _get_film_catalog_keyboard(
 #  COMMANDS
 # ─────────────────────────────────────────────
 
-@Client.on_message(filters.command(["film", "movie", "bioskop", "cinema"]) & ~filters.forwarded)
+@BOT("film", "movie", "bioskop", "cinema")
 @bot_admin_check
-async def film_command(client: Client, message: Message):
+async def film_menu_command(client: Client, message: Message):
     """Handler /film — Katalog atau pencarian film dari channel privat."""
     chat = message.chat
     user = message.from_user
@@ -336,7 +336,7 @@ async def film_command(client: Client, message: Message):
 #  CALLBACKS — NAVIGASI HALAMAN
 # ─────────────────────────────────────────────
 
-@Client.on_callback_query(filters.regex(r"^film_page:(\d+):?([^:]*):?(.*)$"))
+@BOT.on_callback_query(filters.regex(r"^film_page:(\d+):?([^:]*):?(.*)$"))
 async def film_page_callback(client: Client, query: CallbackQuery):
     """Navigasi halaman katalog film."""
     match = query.matches[0]
@@ -369,7 +369,7 @@ async def film_page_callback(client: Client, query: CallbackQuery):
     await query.answer()
 
 
-@Client.on_callback_query(filters.regex(r"^film_refresh$"))
+@BOT.on_callback_query(filters.regex(r"^film_refresh$"))
 async def film_refresh_callback(client: Client, query: CallbackQuery):
     """Refresh katalog film (paksa ambil ulang dari channel)."""
     await query.answer("🔄 Memperbarui katalog film...", show_alert=False)
@@ -389,7 +389,7 @@ async def film_refresh_callback(client: Client, query: CallbackQuery):
         pass
 
 
-@Client.on_callback_query(filters.regex(r"^film_page_info$"))
+@BOT.on_callback_query(filters.regex(r"^film_page_info$"))
 async def film_page_info_callback(client: Client, query: CallbackQuery):
     """Info halaman saat tombol nomor halaman diklik."""
     await query.answer("ℹ️ Gunakan tombol Prev / Next untuk berpindah halaman.", show_alert=False)
@@ -399,7 +399,7 @@ async def film_page_info_callback(client: Client, query: CallbackQuery):
 #  CALLBACKS — PUTAR FILM
 # ─────────────────────────────────────────────
 
-@Client.on_callback_query(filters.regex(r"^film_play:(\d+):(.*)$"))
+@BOT.on_callback_query(filters.regex(r"^film_play:(\d+):(.*)$"))
 async def film_play_callback(client: Client, query: CallbackQuery):
     """Callback untuk memilih dan memutar film ke Voice Chat."""
     film_idx = int(query.matches[0].group(1))
@@ -596,7 +596,7 @@ async def film_play_callback(client: Client, query: CallbackQuery):
 #  CALLBACKS — TUTUP MENU
 # ─────────────────────────────────────────────
 
-@Client.on_callback_query(filters.regex(r"^film_close$"))
+@BOT.on_callback_query(filters.regex(r"^film_close$"))
 async def film_close_callback(client: Client, query: CallbackQuery):
     """Menghapus/menutup pesan menu film."""
     try:
@@ -605,7 +605,7 @@ async def film_close_callback(client: Client, query: CallbackQuery):
         await query.answer("Pesan tidak dapat dihapus.", show_alert=False)
 
 
-@Client.on_callback_query(filters.regex(r"^close_menu$"))
+@BOT.on_callback_query(filters.regex(r"^close_menu$"))
 async def close_menu_callback(client: Client, query: CallbackQuery):
     """Handler universal tombol tutup/close untuk semua menu bot."""
     try:

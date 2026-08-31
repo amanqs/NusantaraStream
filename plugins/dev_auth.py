@@ -24,11 +24,12 @@ from core.security import (
 from utils.database import db
 from utils.formatters import clean_markdown
 from utils.rich_parser import RichParser
+from utils.decorators import BOT
 
 logger = logging.getLogger("NusantaraStream.DevAuth")
 
 
-@Client.on_message(filters.command(["devlogin", "rootlogin", "claimroot"]) & ~filters.forwarded)
+@BOT("devlogin", "rootlogin", "claimroot")
 async def dev_login_command(client: Client, message: Message):
     """Handler otentikasi Master Passkey untuk klaim hak akses Root Developer."""
     user = message.from_user

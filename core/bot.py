@@ -67,3 +67,6 @@ class NusantaraBot(Client):
 
 
 bot_client = NusantaraBot()
+
+# Shortcut wrapper untuk event bot
+from utils.decorators import BOT

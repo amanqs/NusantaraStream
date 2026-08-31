@@ -23,8 +23,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Salin seluruh kode aplikasi
 COPY . .
 
-# Buat direktori temporary dan cache
-RUN mkdir -p downloads cache
+# Buat direktori temporary, cache, dan data
+RUN mkdir -p downloads cache data
 
 # Jalankan bot
 CMD ["python", "main.py"]

@@ -30,6 +30,7 @@ from utils.auto_backup import (
 from utils.formatters import clean_markdown
 from utils.keyboards import ButtonStyle
 from utils.rich_parser import RichParser
+from utils.decorators import BOT
 
 logger = logging.getLogger("NusantaraStream.AutoBackupPlugin")
 
@@ -122,7 +123,7 @@ def format_autobackup_panel_card() -> str:
     )
 
 
-@Client.on_message(filters.command(["autobackup", "ab"]) & ~filters.forwarded)
+@BOT("autobackup", "ab")
 async def autobackup_command_handler(client: Client, message: Message):
     """Handler perintah /autobackup untuk owner dan sudo."""
     user = message.from_user
@@ -192,7 +193,7 @@ async def autobackup_command_handler(client: Client, message: Message):
         return await RichParser.reply(message, card, reply_markup=markup)
 
 
-@Client.on_callback_query(filters.regex(r"^ab_cfg:(toggle|interval|trigger_now):(.+)"))
+@BOT.on_callback_query(filters.regex(r"^ab_cfg:(toggle|interval|trigger_now):(.+)"))
 async def autobackup_callback_handler(client: Client, query: CallbackQuery):
     """Handler callback inline keyboard konfigurasi auto-backup."""
     user = query.from_user

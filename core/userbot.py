@@ -56,6 +56,17 @@ class NusantaraUserbot(Client):
         self.id = get_me.id
         self.name = get_me.first_name
         self.username = get_me.username or ""
+        # Daftarkan semua handler @USER yang telah tercatat dari plugins
+        try:
+            from utils.decorators import USERBOT_HANDLERS
+            for handler, group in USERBOT_HANDLERS:
+                try:
+                    self.add_handler(handler, group)
+                except Exception as e:
+                    logger.debug(f"Gagal mendaftarkan handler userbot: {e}")
+        except Exception as e:
+            logger.debug(f"Error loading USERBOT_HANDLERS: {e}")
+
         logger.info(
             f"Asisten Userbot berhasil online sebagai {self.name} (@{self.username or self.id})"
         )
@@ -67,3 +78,7 @@ class NusantaraUserbot(Client):
 
 
 userbot_client = NusantaraUserbot()
+
+# Shortcut wrapper untuk event userbot
+from utils.decorators import USER
+

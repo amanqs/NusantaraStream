@@ -109,7 +109,7 @@ async def execute_and_send_backup(
     _IS_BACKING_UP = True
     temp_backup_path = ""
     try:
-        db_path = getattr(db, "db_path", "nusantara_data.db")
+        db_path = getattr(db, "db_path", getattr(Config, "DB_PATH", "data/nusantara_data.db"))
         if not os.path.exists(db_path):
             logger.error(f"Berkas database {db_path} tidak ditemukan!")
             return False

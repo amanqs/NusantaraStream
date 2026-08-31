@@ -24,6 +24,7 @@ from utils.queue import queue_manager
 from utils.formatters import clean_markdown
 from utils.keyboards import ButtonStyle
 from utils.rich_parser import RichParser
+from utils.decorators import BOT
 
 logger = logging.getLogger("NusantaraStream.Settings")
 
@@ -133,7 +134,7 @@ def format_settings_card(settings: dict) -> str:
     return card
 
 
-@Client.on_message(filters.command(["settings", "setting"]) & ~filters.forwarded)
+@BOT("settings", "setting")
 async def settings_command(client: Client, message: Message):
     """Handler perintah /settings untuk konfigurasi grup."""
     chat = message.chat
@@ -164,7 +165,7 @@ async def settings_command(client: Client, message: Message):
     await RichParser.reply(message, card_text, reply_markup=markup)
 
 
-@Client.on_callback_query(filters.regex(r"^set_group_cfg:(.+):(.+)"))
+@BOT.on_callback_query(filters.regex(r"^set_group_cfg:(.+):(.+)"))
 async def set_group_config_callback(client: Client, query: CallbackQuery):
     """Handler callback toggle pengaturan grup."""
     parts = query.data.split(":")

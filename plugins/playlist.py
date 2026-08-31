@@ -38,6 +38,7 @@ from utils.formatters import clean_markdown, get_readable_time, get_clean_youtub
 from utils.keyboards import resolve_style, ButtonStyle
 from utils.rich_parser import RichParser
 from utils.queue import queue_manager, TrackInfo
+from utils.decorators import bot_admin_check, BOT
 from utils.call_manager import call_manager
 from utils.ytdl import ytdl_helper
 from utils.decorators import bot_admin_check
@@ -178,7 +179,7 @@ def format_playlist_card(
     return card, total_pages
 
 
-@Client.on_message(filters.command(["save", "saveplaylist", "addplaylist"]) & ~filters.forwarded)
+@BOT("save", "saveplaylist", "addplaylist")
 async def save_track_command(client: Client, message: Message):
     """Handler perintah /save untuk menyimpan lagu ke playlist pribadi."""
     user = message.from_user
@@ -268,7 +269,7 @@ async def save_track_command(client: Client, message: Message):
     await RichParser.edit(status_msg, card, reply_markup=markup)
 
 
-@Client.on_message(filters.command(["playlist", "myplaylist", "daftarlagu"]) & ~filters.forwarded)
+@BOT("playlist", "myplaylist", "daftarlagu")
 async def view_playlist_command(client: Client, message: Message):
     """Handler perintah /playlist untuk melihat daftar lagu tersimpan."""
     user = message.from_user
@@ -294,7 +295,7 @@ async def view_playlist_command(client: Client, message: Message):
     )
 
 
-@Client.on_message(filters.command(["playplaylist", "playpl", "putarplaylist"]) & ~filters.forwarded)
+@BOT("playplaylist", "playpl", "putarplaylist")
 @bot_admin_check
 async def play_playlist_command(client: Client, message: Message):
     """Handler perintah /playplaylist untuk memutar seluruh lagu playlist di Voice Chat."""
@@ -393,7 +394,7 @@ async def play_playlist_command(client: Client, message: Message):
     await RichParser.edit(status_msg, card, reply_markup=markup)
 
 
-@Client.on_message(filters.command(["delplaylist", "delpl", "hapuslagu"]) & ~filters.forwarded)
+@BOT("delplaylist", "delpl", "hapuslagu")
 async def delete_playlist_item_command(client: Client, message: Message):
     """Handler perintah /delplaylist <nomor urut> untuk menghapus lagu dari playlist."""
     user = message.from_user
@@ -451,7 +452,7 @@ async def delete_playlist_item_command(client: Client, message: Message):
 # ------------------------------------------------------------------ #
 
 
-@Client.on_callback_query(filters.regex(r"^pl_page:(\d+):(\d+)"))
+@BOT.on_callback_query(filters.regex(r"^pl_page:(\d+):(\d+)"))
 async def playlist_page_callback(client: Client, query: CallbackQuery):
     """Handler navigasi halaman playlist via callback button."""
     data = query.data.split(":")
@@ -484,7 +485,7 @@ async def playlist_page_callback(client: Client, query: CallbackQuery):
     await query.answer()
 
 
-@Client.on_callback_query(filters.regex(r"^pl_play:(\d+)"))
+@BOT.on_callback_query(filters.regex(r"^pl_play:(\d+)"))
 async def playlist_play_callback(client: Client, query: CallbackQuery):
     """Handler callback tombol 'Putar Semua Lagu di Playlist'."""
     target_user_id = int(query.data.split(":")[1])
@@ -568,7 +569,7 @@ async def playlist_play_callback(client: Client, query: CallbackQuery):
     await RichParser.edit(query, card, reply_markup=markup)
 
 
-@Client.on_callback_query(filters.regex(r"^pl_delmenu:(\d+):(\d+)"))
+@BOT.on_callback_query(filters.regex(r"^pl_delmenu:(\d+):(\d+)"))
 async def playlist_delmenu_callback(client: Client, query: CallbackQuery):
     """Handler menu tombol cepat untuk menghapus lagu dari halaman aktif."""
     data = query.data.split(":")
@@ -621,7 +622,7 @@ async def playlist_delmenu_callback(client: Client, query: CallbackQuery):
     await query.answer()
 
 
-@Client.on_callback_query(filters.regex(r"^pl_do_del:(\d+):(\d+):(\d+)"))
+@BOT.on_callback_query(filters.regex(r"^pl_do_del:(\d+):(\d+):(\d+)"))
 async def playlist_do_del_callback(client: Client, query: CallbackQuery):
     """Handler eksekusi hapus lagu dari callback tombol."""
     data = query.data.split(":")
@@ -656,7 +657,7 @@ async def playlist_do_del_callback(client: Client, query: CallbackQuery):
     )
 
 
-@Client.on_callback_query(filters.regex(r"^pl_clear_confirm:(\d+)"))
+@BOT.on_callback_query(filters.regex(r"^pl_clear_confirm:(\d+)"))
 async def playlist_clear_confirm_callback(client: Client, query: CallbackQuery):
     """Konfirmasi sebelum mengosongkan seluruh playlist."""
     target_user_id = int(query.data.split(":")[1])
@@ -693,7 +694,7 @@ async def playlist_clear_confirm_callback(client: Client, query: CallbackQuery):
     await query.answer()
 
 
-@Client.on_callback_query(filters.regex(r"^pl_do_clear:(\d+)"))
+@BOT.on_callback_query(filters.regex(r"^pl_do_clear:(\d+)"))
 async def playlist_do_clear_callback(client: Client, query: CallbackQuery):
     """Eksekusi pengosongan seluruh playlist."""
     target_user_id = int(query.data.split(":")[1])

@@ -39,6 +39,7 @@ wheels/
 *.sqlite
 *.sqlite3
 nusantara_data.db
+data/
 downloads/
 temp/
 cache/

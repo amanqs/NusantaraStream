@@ -34,11 +34,12 @@ except ImportError:
 from config import Config
 from utils.formatters import clean_markdown, get_readable_time, get_clean_youtube_thumbnail
 from utils.ytdl import ytdl_helper
+from utils.decorators import BOT
 
 logger = logging.getLogger("NusantaraStream.Inline")
 
 
-@Client.on_inline_query()
+@BOT.on_inline_query()
 async def inline_search_handler(client: Client, inline_query: InlineQuery):
     """Handler pencarian inline YouTube (@BotUsername <judul lagu>)."""
     query_text = inline_query.query.strip()

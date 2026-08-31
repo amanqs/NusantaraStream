@@ -37,7 +37,7 @@ from utils.queue import queue_manager, TrackInfo
 from utils.formatters import clean_markdown, format_now_playing
 from utils.keyboards import get_control_panel, get_tv_control_panel, resolve_style, ButtonStyle
 from utils.rich_parser import RichParser
-from utils.decorators import bot_admin_check
+from utils.decorators import bot_admin_check, BOT
 from utils.log_helper import send_stream_log
 from utils.iptv_manager import iptv_manager, IPTV_SOURCES
 
@@ -164,7 +164,7 @@ def format_tv_menu_card(category: str, total_channels: int, page: int = 1) -> st
     )
 
 
-@Client.on_message(filters.command(["tv", "iptv", "livetv"]) & ~filters.forwarded)
+@BOT("tv", "iptv", "livetv")
 @bot_admin_check
 async def tv_menu_command(client: Client, message: Message):
     """Handler perintah /tv untuk membuka menu Siaran Live TV atau mencari saluran."""
@@ -349,8 +349,8 @@ async def tv_menu_command(client: Client, message: Message):
     queue_manager.set_now_playing_msg(chat.id, loading_msg.id)
 
 
-@Client.on_callback_query(filters.regex(r"^tv_cat:(\w+):(\d+)"))
-async def tv_category_nav_callback(client: Client, query: CallbackQuery):
+@BOT.on_callback_query(filters.regex(r"^tv_cat:(\w+):(\d+)"))
+async def tv_cat_callback(client: Client, query: CallbackQuery):
     """Callback navigasi antar-kategori dan pagination halaman saluran TV."""
     category = query.matches[0].group(1)
     page = int(query.matches[0].group(2))
@@ -371,8 +371,8 @@ async def tv_category_nav_callback(client: Client, query: CallbackQuery):
     await query.answer()
 
 
-@Client.on_callback_query(filters.regex(r"^tv_p:(\w+):(\d+)"))
-async def tv_channel_play_callback(client: Client, query: CallbackQuery):
+@BOT.on_callback_query(filters.regex(r"^tv_p:(\w+):(\d+)"))
+async def tv_p_callback(client: Client, query: CallbackQuery):
     """Callback untuk langsung memutar saluran TV pilihan di Voice Chat Video."""
     category = query.matches[0].group(1)
     channel_idx = int(query.matches[0].group(2))
@@ -446,8 +446,8 @@ async def tv_channel_play_callback(client: Client, query: CallbackQuery):
         await query.answer(f"❌ Gagal memutar saluran TV: {e}", show_alert=True)
 
 
-@Client.on_callback_query(filters.regex(r"^tv_splay:([^:]+):(\d+)"))
-async def tv_search_play_callback(client: Client, query: CallbackQuery):
+@BOT.on_callback_query(filters.regex(r"^tv_splay:([^:]+):(\d+)"))
+async def tv_splay_callback(client: Client, query: CallbackQuery):
     """Callback untuk memutar hasil pencarian siaran TV."""
     search_key = query.matches[0].group(1)
     ch_idx = int(query.matches[0].group(2))
@@ -521,7 +521,7 @@ async def tv_search_play_callback(client: Client, query: CallbackQuery):
         await query.answer(f"❌ Gagal memutar saluran TV: {e}", show_alert=True)
 
 
-@Client.on_callback_query(filters.regex(r"^tv_page_info$"))
+@BOT.on_callback_query(filters.regex(r"^tv_page_info$"))
 async def tv_page_info_callback(client: Client, query: CallbackQuery):
     """Informasi halaman saluran TV saat tombol halaman diklik."""
     await query.answer("ℹ️ Gunakan tombol Prev / Next untuk berpindah halaman saluran TV.", show_alert=False)

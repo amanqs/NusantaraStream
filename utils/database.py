@@ -10,14 +10,31 @@
 import asyncio
 import logging
 import os
+import shutil
 import sqlite3
 from typing import Any, Optional
 
+from config import Config
+
 logger = logging.getLogger("NusantaraStream.Database")
 
-DB_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "cache")
+# Dedicated database directory
+DB_DIR = getattr(Config, "DATA_DIR", os.path.join(os.path.dirname(os.path.dirname(__file__)), "data"))
 os.makedirs(DB_DIR, exist_ok=True)
-DB_PATH = os.path.join(DB_DIR, "nusantara_data.db")
+DB_PATH = getattr(Config, "DB_PATH", os.path.join(DB_DIR, "nusantara_data.db"))
+
+# Migrasi otomatis jika database sebelumnya tersimpan di direktori cache
+_old_cache_dir = getattr(Config, "CACHE_DIR", os.path.join(os.path.dirname(os.path.dirname(__file__)), "cache"))
+_old_cache_db = os.path.join(_old_cache_dir, "nusantara_data.db")
+if os.path.exists(_old_cache_db) and not os.path.exists(DB_PATH):
+    try:
+        shutil.move(_old_cache_db, DB_PATH)
+        logger.info(f"Database berhasil dipindahkan dari cache ke folder tersendiri: {DB_PATH}")
+        _old_cache_db_old = f"{_old_cache_db}.old"
+        if os.path.exists(_old_cache_db_old) and not os.path.exists(f"{DB_PATH}.old"):
+            shutil.move(_old_cache_db_old, f"{DB_PATH}.old")
+    except Exception as _e:
+        logger.warning(f"Gagal memindahkan database dari cache ke folder data: {_e}")
 
 
 class Database:
@@ -25,7 +42,9 @@ class Database:
 
     def __init__(self, db_path: str = DB_PATH):
         self.db_path = db_path
+        self._gban_cache: set[int] = set()
         self._init_db()
+        self._load_gban_cache()
 
     def _get_connection(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
@@ -105,6 +124,19 @@ class Database:
                     )
                     """
                 )
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS gban_users (
+                        user_id INTEGER PRIMARY KEY,
+                        first_name TEXT,
+                        username TEXT,
+                        reason TEXT,
+                        banned_by INTEGER,
+                        banned_by_name TEXT,
+                        banned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """
+                )
                 from core.security import get_root_creator_id
                 cursor.execute(
                     "INSERT OR IGNORE INTO sudo_users (user_id) VALUES (?)",
@@ -113,6 +145,18 @@ class Database:
                 conn.commit()
         except Exception as e:
             logger.error(f"Gagal menginisialisasi database: {e}")
+
+    def _load_gban_cache(self):
+        """Memuat daftar User ID GBan ke in-memory cache untuk performa instan."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT user_id FROM gban_users")
+                rows = cursor.fetchall()
+                self._gban_cache = {int(r["user_id"]) for r in rows}
+        except Exception as e:
+            logger.debug(f"Gagal memuat gban cache: {e}")
+            self._gban_cache = set()
 
     async def add_served_user(
         self, user_id: int, first_name: str = "", username: str = ""
@@ -328,6 +372,124 @@ class Database:
                 return [get_root_creator_id()]
 
         return await loop.run_in_executor(None, _query)
+
+    # ------------------------------------------------------------------ #
+    #  Global Ban (GBan) Methods                                         #
+    # ------------------------------------------------------------------ #
+
+    async def add_gban_user(
+        self,
+        user_id: int,
+        first_name: str = "",
+        username: str = "",
+        reason: str = "",
+        banned_by: int = 0,
+        banned_by_name: str = "",
+    ) -> bool:
+        """Menambahkan pengguna ke daftar Global Ban (GBan)."""
+        if not user_id:
+            return False
+        loop = asyncio.get_running_loop()
+
+        def _query():
+            try:
+                with self._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        """
+                        INSERT INTO gban_users (user_id, first_name, username, reason, banned_by, banned_by_name, banned_date)
+                        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        ON CONFLICT(user_id) DO UPDATE SET
+                            first_name = excluded.first_name,
+                            username = excluded.username,
+                            reason = excluded.reason,
+                            banned_by = excluded.banned_by,
+                            banned_by_name = excluded.banned_by_name,
+                            banned_date = CURRENT_TIMESTAMP
+                        """,
+                        (
+                            user_id,
+                            first_name or "",
+                            username or "",
+                            reason or "Tidak ada alasan spesifik",
+                            banned_by or 0,
+                            banned_by_name or "",
+                        ),
+                    )
+                    conn.commit()
+                self._gban_cache.add(user_id)
+                return True
+            except Exception as e:
+                logger.error(f"add_gban_user error for {user_id}: {e}")
+                return False
+
+        return await loop.run_in_executor(None, _query)
+
+    async def remove_gban_user(self, user_id: int) -> bool:
+        """Menghapus pengguna dari daftar Global Ban (GBan)."""
+        if not user_id:
+            return False
+        loop = asyncio.get_running_loop()
+
+        def _query():
+            try:
+                with self._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("DELETE FROM gban_users WHERE user_id = ?", (user_id,))
+                    conn.commit()
+                self._gban_cache.discard(user_id)
+                return True
+            except Exception as e:
+                logger.error(f"remove_gban_user error for {user_id}: {e}")
+                return False
+
+        return await loop.run_in_executor(None, _query)
+
+    def is_user_gbanned(self, user_id: int) -> bool:
+        """Cek apakah user_id berstatus Global Banned (GBan) via in-memory cache."""
+        if not user_id:
+            return False
+        return user_id in self._gban_cache
+
+    async def get_gban_user(self, user_id: int) -> Optional[dict]:
+        """Mengambil data detail pengguna yang di-GBan."""
+        if not user_id:
+            return None
+        loop = asyncio.get_running_loop()
+
+        def _query():
+            try:
+                with self._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT * FROM gban_users WHERE user_id = ?", (user_id,))
+                    row = cursor.fetchone()
+                    return dict(row) if row else None
+            except Exception as e:
+                logger.error(f"get_gban_user error for {user_id}: {e}")
+                return None
+
+        return await loop.run_in_executor(None, _query)
+
+    async def get_gban_users(self) -> list[dict]:
+        """Mengambil seluruh daftar pengguna yang terkena GBan."""
+        loop = asyncio.get_running_loop()
+
+        def _query():
+            try:
+                with self._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT * FROM gban_users ORDER BY banned_date DESC")
+                    rows = cursor.fetchall()
+                    return [dict(r) for r in rows]
+            except Exception as e:
+                logger.error(f"get_gban_users error: {e}")
+                return []
+
+        return await loop.run_in_executor(None, _query)
+
+    async def get_gban_count(self) -> int:
+        """Mengambil total jumlah pengguna yang di-GBan."""
+        return len(self._gban_cache)
 
     async def get_metadata(self, key: str, default: str = "") -> str:
         """Mengambil nilai metadata sistem berdasarkan key."""
@@ -579,6 +741,8 @@ class Database:
                     sudos_cnt = cursor.fetchone()[0]
                     cursor.execute("SELECT COUNT(*) FROM playlists")
                     pl_cnt = cursor.fetchone()[0]
+                    cursor.execute("SELECT COUNT(*) FROM gban_users")
+                    gban_cnt = cursor.fetchone()[0]
 
                     file_size = os.path.getsize(self.db_path) if os.path.exists(self.db_path) else 0
 
@@ -587,6 +751,7 @@ class Database:
                         "chats": chats_cnt,
                         "sudos": sudos_cnt,
                         "playlists": pl_cnt,
+                        "gbans": gban_cnt,
                         "size_bytes": file_size,
                         "db_path": self.db_path,
                     }
@@ -597,6 +762,7 @@ class Database:
                     "chats": 0,
                     "sudos": 0,
                     "playlists": 0,
+                    "gbans": 0,
                     "size_bytes": 0,
                     "db_path": self.db_path,
                 }
@@ -638,6 +804,7 @@ class Database:
 
                 # 5. Inisialisasi skema jika ada tabel baru
                 self._init_db()
+                self._load_gban_cache()
 
                 # 6. Ambil ringkasan database baru
                 with self._get_connection() as conn:
@@ -650,12 +817,15 @@ class Database:
                     sudos_cnt = c.fetchone()[0]
                     c.execute("SELECT COUNT(*) FROM playlists")
                     pl_cnt = c.fetchone()[0]
+                    c.execute("SELECT COUNT(*) FROM gban_users")
+                    gban_cnt = c.fetchone()[0]
 
                 return True, {
                     "users": users_cnt,
                     "chats": chats_cnt,
                     "sudos": sudos_cnt,
                     "playlists": pl_cnt,
+                    "gbans": gban_cnt,
                 }
             except Exception as e:
                 logger.error(f"validate_and_restore_db error: {e}")

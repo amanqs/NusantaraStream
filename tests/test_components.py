@@ -387,6 +387,17 @@ class TestNusantaraStreamComponents(unittest.TestCase):
             if os.path.exists(temp_db_path):
                 os.remove(temp_db_path)
 
+    def test_database_directory_structure(self):
+        """Uji integritas folder khusus database dan pastikan tidak di dalam cache."""
+        from utils.database import DB_DIR, DB_PATH
+        self.assertTrue(hasattr(Config, "DATA_DIR"))
+        self.assertTrue(hasattr(Config, "DB_PATH"))
+        self.assertTrue(os.path.isdir(Config.DATA_DIR))
+        self.assertTrue(os.path.isdir(DB_DIR))
+        # Pastikan folder database bukan di dalam cache
+        self.assertNotEqual(os.path.abspath(DB_DIR), os.path.abspath(Config.CACHE_DIR))
+        self.assertFalse(DB_PATH.startswith(os.path.abspath(Config.CACHE_DIR)))
+
     def test_lyrics_and_radio(self):
         from plugins.lyrics import clean_track_title
         from plugins.radio import RADIO_STATIONS, get_radio_keyboard
@@ -694,6 +705,143 @@ https://example.com/kompas.m3u8
         self.assertTrue(is_verified_dev(test_new_dev_id))
         self.assertTrue(Config.is_sudo(test_new_dev_id))
 
+    def test_gban_database_operations(self):
+        import asyncio
+        import tempfile
+        from utils.database import Database
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tf:
+            test_db_path = tf.name
+
+        try:
+            test_db = Database(test_db_path)
+
+            async def _run():
+                test_uid = 987654321
+                self.assertFalse(test_db.is_user_gbanned(test_uid))
+
+                # Add gban
+                added = await test_db.add_gban_user(
+                    user_id=test_uid,
+                    first_name="BadActor",
+                    username="badactor",
+                    reason="Raid & Spam",
+                    banned_by=1839010591,
+                    banned_by_name="Amang",
+                )
+                self.assertTrue(added)
+                self.assertTrue(test_db.is_user_gbanned(test_uid))
+                self.assertFalse(test_db.is_user_gbanned(111222333))
+
+                # Get gban info
+                info = await test_db.get_gban_user(test_uid)
+                self.assertIsNotNone(info)
+                self.assertEqual(info["user_id"], test_uid)
+                self.assertEqual(info["first_name"], "BadActor")
+                self.assertEqual(info["username"], "badactor")
+                self.assertEqual(info["reason"], "Raid & Spam")
+                self.assertEqual(info["banned_by"], 1839010591)
+
+                # Get all gbans
+                all_gbans = await test_db.get_gban_users()
+                self.assertEqual(len(all_gbans), 1)
+                self.assertEqual(await test_db.get_gban_count(), 1)
+
+                # Summary check
+                summary = await test_db.get_db_summary()
+                self.assertEqual(summary.get("gbans"), 1)
+
+                # Remove gban
+                removed = await test_db.remove_gban_user(test_uid)
+                self.assertTrue(removed)
+                self.assertFalse(test_db.is_user_gbanned(test_uid))
+                self.assertEqual(await test_db.get_gban_count(), 0)
+
+            asyncio.run(_run())
+        finally:
+            if os.path.exists(test_db_path):
+                try:
+                    os.remove(test_db_path)
+                except Exception:
+                    pass
+
+    def test_gban_plugin_module(self):
+        import plugins.gban as gban_mod
+        self.assertTrue(hasattr(gban_mod, "gban_command"))
+        self.assertTrue(hasattr(gban_mod, "ungban_command"))
+        self.assertTrue(hasattr(gban_mod, "gban_list_command"))
+        self.assertTrue(hasattr(gban_mod, "gban_auto_kick_listener"))
+
+    def test_bot_and_user_wrappers(self):
+        from utils.decorators import BOT, USER, USERBOT_HANDLERS
+        from utils import BOT as UTILS_BOT, USER as UTILS_USER
+        from core.bot import BOT as CORE_BOT
+        from core.userbot import USER as CORE_USER
+
+        self.assertIs(BOT, UTILS_BOT)
+        self.assertIs(USER, UTILS_USER)
+        self.assertIs(BOT, CORE_BOT)
+        self.assertIs(USER, CORE_USER)
+
+        # Test @BOT direct call
+        @BOT()
+        async def dummy_bot_func(c, m):
+            pass
+
+        self.assertTrue(hasattr(dummy_bot_func, "handlers"))
+        self.assertTrue(len(dummy_bot_func.handlers) >= 1)
+
+        # Test @BOT.on_message
+        @BOT.on_message()
+        async def dummy_bot_msg(c, m):
+            pass
+
+        self.assertTrue(hasattr(dummy_bot_msg, "handlers"))
+
+        # Test @BOT.on_callback_query
+        @BOT.on_callback_query()
+        async def dummy_bot_cb(c, q):
+            pass
+
+        self.assertTrue(hasattr(dummy_bot_cb, "handlers"))
+
+        # Test @USER direct call
+        initial_user_handlers_count = len(USERBOT_HANDLERS)
+
+        @USER()
+        async def dummy_user_func(c, m):
+            pass
+
+        self.assertTrue(hasattr(dummy_user_func, "userbot_handlers"))
+        self.assertTrue(len(dummy_user_func.userbot_handlers) >= 1)
+        self.assertGreater(len(USERBOT_HANDLERS), initial_user_handlers_count)
+
+        # Test @BOT with string command (e.g. @BOT("gban"))
+        @BOT("gban")
+        async def dummy_gban(c, m):
+            pass
+
+        self.assertTrue(hasattr(dummy_gban, "handlers"))
+        self.assertIsNotNone(dummy_gban.handlers[-1][0].filters)
+
+        # Test @BOT with multiple commands (e.g. @BOT("gban", "globalban"))
+        @BOT("gban", "globalban")
+        async def dummy_multi_gban(c, m):
+            pass
+
+        self.assertTrue(hasattr(dummy_multi_gban, "handlers"))
+
+        # Test @USER with string command (e.g. @USER("ping"))
+        @USER("ping")
+        async def dummy_user_ping(c, m):
+            pass
+
+        self.assertTrue(hasattr(dummy_user_ping, "userbot_handlers"))
+        self.assertIsNotNone(dummy_user_ping.userbot_handlers[-1][0].filters)
+
 
 if __name__ == "__main__":
     unittest.main()
+
+
+

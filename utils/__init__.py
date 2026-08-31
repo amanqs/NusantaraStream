@@ -24,7 +24,7 @@ from .keyboards import (
 from .queue import queue_manager, TrackInfo
 from .ytdl import ytdl_helper
 from .call_manager import call_manager
-from .decorators import authorized_only, bot_admin_check
+from .decorators import authorized_only, bot_admin_check, BOT, USER
 
 __all__ = [
     "get_readable_time",
@@ -43,4 +43,6 @@ __all__ = [
     "call_manager",
     "authorized_only",
     "bot_admin_check",
+    "BOT",
+    "USER",
 ]

@@ -24,11 +24,12 @@ from utils.formatters import format_now_playing, get_clean_youtube_thumbnail
 from utils.keyboards import get_control_panel
 from utils.queue import queue_manager
 from utils.rich_parser import RichParser
+from utils.decorators import BOT
 
 logger = logging.getLogger("NusantaraStream.NowPlaying")
 
 
-@Client.on_message(filters.command(["np", "nowplaying"]) & ~filters.forwarded)
+@BOT("np", "nowplaying")
 async def now_playing_command(client: Client, message: Message):
     """Menampilkan status lagu yang sedang diputar beserta visual Rich Message Table & Thumbnail Preview."""
     chat_id = message.chat.id

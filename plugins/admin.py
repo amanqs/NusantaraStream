@@ -119,11 +119,12 @@ from utils.keyboards import (
     get_start_keyboard,
     get_help_keyboard,
 )
+from utils.decorators import BOT
 
 logger = logging.getLogger("NusantaraStream.Admin")
 
 
-@Client.on_message(filters.command(["auth"]) & ~filters.forwarded)
+@BOT("auth")
 async def auth_user_command(client: Client, message: Message):
     """Memberikan izin khusus kepada user untuk mengontrol bot."""
     chat = message.chat
@@ -165,7 +166,7 @@ async def auth_user_command(client: Client, message: Message):
     )
 
 
-@Client.on_message(filters.command(["unauth"]) & ~filters.forwarded)
+@BOT("unauth")
 async def unauth_user_command(client: Client, message: Message):
     """Mencabut izin khusus user di grup."""
     chat = message.chat
@@ -206,7 +207,7 @@ async def unauth_user_command(client: Client, message: Message):
     )
 
 
-@Client.on_message(filters.command(["authlist"]) & ~filters.forwarded)
+@BOT("authlist")
 async def authlist_command(client: Client, message: Message):
     """Melihat daftar user terotorisasi di grup saat ini."""
     chat_id = message.chat.id
@@ -249,7 +250,7 @@ async def authlist_command(client: Client, message: Message):
     await RichParser.reply(message, text)
 
 
-@Client.on_message(filters.command(["activevc"]) & filters.user(Config.SUDO_USERS))
+@BOT(filters.command(["activevc"]) & filters.user(Config.SUDO_USERS))
 async def active_vc_command(client: Client, message: Message):
     """[Sudo] Melihat seluruh voice chat yang sedang aktif memutar musik."""
     active_chats = queue_manager.get_active_chats()
@@ -291,7 +292,7 @@ async def active_vc_command(client: Client, message: Message):
     await RichParser.reply(message, text)
 
 
-@Client.on_message(filters.command(["clean"]) & filters.user(Config.SUDO_USERS))
+@BOT(filters.command(["clean"]) & filters.user(Config.SUDO_USERS))
 async def clean_cache_command(client: Client, message: Message):
     """[Sudo] Membersihkan cache dan file sementara di server."""
     reply = await RichParser.reply(message, "⚡ *Membersihkan direktori cache & temp...*")
@@ -331,7 +332,7 @@ async def clean_cache_command(client: Client, message: Message):
         )
 
 
-@Client.on_message(
+@BOT(
     filters.command(["backup", "backupdb"])
     & filters.user(Config.OWNER_ID)
     & ~filters.forwarded
@@ -385,7 +386,7 @@ async def backup_db_command(client: Client, message: Message):
         await RichParser.edit(status_msg, f"❌ **Gagal mengirim berkas backup:** `{clean_markdown(str(e))}`")
 
 
-@Client.on_message(
+@BOT(
     filters.command(["restore", "restoredb"])
     & filters.user(Config.OWNER_ID)
     & ~filters.forwarded
@@ -451,7 +452,7 @@ async def restore_db_command(client: Client, message: Message):
                 pass
 
 
-@Client.on_message(
+@BOT(
     filters.command(["broadcast", "gcast", "bcast"])
     & filters.user(Config.SUDO_USERS)
     & ~filters.forwarded
@@ -593,10 +594,7 @@ async def broadcast_command(client: Client, message: Message):
         await RichParser.reply(message, finished_card)
 
 
-@Client.on_message(
-    filters.command(["addsudo", "promotesudo"])
-    & ~filters.forwarded
-)
+@BOT("addsudo", "promotesudo")
 async def add_sudo_command(client: Client, message: Message):
     """[Owner Only] Menambahkan user ke daftar Sudo Admin bot."""
     sender = message.from_user
@@ -661,10 +659,7 @@ async def add_sudo_command(client: Client, message: Message):
     await RichParser.reply(message, card)
 
 
-@Client.on_message(
-    filters.command(["delsudo", "removesudo", "demotesudo"])
-    & ~filters.forwarded
-)
+@BOT("delsudo", "removesudo", "demotesudo")
 async def del_sudo_command(client: Client, message: Message):
     """[Owner Only] Mencabut izin Sudo Admin dari user."""
     sender = message.from_user
@@ -721,7 +716,7 @@ async def del_sudo_command(client: Client, message: Message):
     await RichParser.reply(message, card)
 
 
-@Client.on_message(
+@BOT(
     filters.command(["sudolist", "sudos"])
     & filters.user(Config.SUDO_USERS)
     & ~filters.forwarded
@@ -780,7 +775,7 @@ for _pattern in ["plugins/*.py", "utils/*.py", "core/*.py", "config.py"]:
             pass
 
 
-@Client.on_message(
+@BOT(
     filters.command(["reload", "refresh"])
     & filters.user(Config.SUDO_USERS)
     & ~filters.forwarded
@@ -881,13 +876,18 @@ async def reload_plugins_command(client: Client, message: Message):
             else:
                 module = importlib.import_module(mod_name)
 
-            # Re-register handlers from module into client dispatcher
+            # Re-register handlers from module into bot & userbot client dispatcher
+            from core.userbot import userbot_client
             for name in vars(module).keys():
                 obj = getattr(module, name)
                 if hasattr(obj, "handlers") and isinstance(obj.handlers, list):
                     for item in obj.handlers:
                         if isinstance(item, tuple) and len(item) == 2:
                             client.add_handler(item[0], item[1])
+                if hasattr(obj, "userbot_handlers") and isinstance(obj.userbot_handlers, list):
+                    for item in obj.userbot_handlers:
+                        if isinstance(item, tuple) and len(item) == 2 and getattr(userbot_client, "is_connected", False):
+                            userbot_client.add_handler(item[0], item[1])
 
             reloaded.append(mod_name.split(".")[-1])
         except Exception as e:
@@ -929,7 +929,7 @@ async def reload_plugins_command(client: Client, message: Message):
     await RichParser.edit(reply, card)
 
 
-@Client.on_message(
+@BOT(
     filters.command(["restart", "reboot"])
     & filters.user(Config.SUDO_USERS)
     & ~filters.forwarded
@@ -956,7 +956,7 @@ async def restart_bot_command(client: Client, message: Message):
     os.execv(sys.executable, [sys.executable, "main.py"])
 
 
-@Client.on_message(
+@BOT(
     filters.command(["logs", "log"])
     & filters.user(Config.SUDO_USERS)
     & ~filters.forwarded
@@ -983,7 +983,7 @@ async def get_logs_command(client: Client, message: Message):
         await RichParser.edit(status, f"❌ **Gagal mengirim log:** `{clean_markdown(str(e))}`")
 
 
-@Client.on_message(
+@BOT(
     filters.command(["sysinfo", "server"])
     & filters.user(Config.SUDO_USERS)
     & ~filters.forwarded
@@ -1023,7 +1023,7 @@ async def sysinfo_command(client: Client, message: Message):
     await RichParser.reply(message, card)
 
 
-@Client.on_message(
+@BOT(
     filters.command(["preview", "rich", "render", "prv"])
     & filters.user(Config.SUDO_USERS)
     & ~filters.forwarded
@@ -1083,14 +1083,14 @@ async def preview_handler(client: Client, message: Message):
     return await RichParser.reply(message, clean_content, reply_markup=markup)
 
 
-@Client.on_callback_query(filters.regex(r"^copy:(.+)"))
+@BOT.on_callback_query(filters.regex(r"^copy:(.+)"))
 async def copy_callback_handler(client: Client, query: CallbackQuery):
     """Handler tombol copy inline untuk menyalin teks/nomor dengan popup alert."""
     copy_text = query.data.split(":", 1)[1]
     await query.answer(f"📋 Disalin:\n{copy_text}", show_alert=True)
 
 
-@Client.on_callback_query(filters.regex(r"^(close|cb_close)$"))
+@BOT.on_callback_query(filters.regex(r"^(close|cb_close)$"))
 async def close_callback_handler(client: Client, query: CallbackQuery):
     """Handler tombol tutup pesan interaktif."""
     try:
@@ -1100,7 +1100,7 @@ async def close_callback_handler(client: Client, query: CallbackQuery):
     await query.answer("Menu ditutup.")
 
 
-@Client.on_message(
+@BOT(
     filters.command(["eval", "e", "sh", "exec", "term", "terminal", "bash"])
     & filters.user(Config.OWNER_ID)
     & ~filters.forwarded

@@ -10,4 +10,5 @@ services:
     volumes:
       - ./downloads:/app/downloads
       - ./cache:/app/cache
+      - ./data:/app/data
       - ./nusantara_stream.log:/app/nusantara_stream.log

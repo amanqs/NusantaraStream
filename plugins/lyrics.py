@@ -25,6 +25,7 @@ from utils.queue import queue_manager
 from utils.formatters import clean_markdown
 from utils.rich_parser import RichParser
 from utils.keyboards import resolve_style, ButtonStyle
+from utils.decorators import BOT
 
 logger = logging.getLogger("NusantaraStream.Lyrics")
 
@@ -74,7 +75,7 @@ async def fetch_lyrics(query: str) -> dict | None:
     return None
 
 
-@Client.on_message(filters.command(["lyrics", "lirik"]) & ~filters.forwarded)
+@BOT("lyrics", "lirik")
 async def lyrics_command(client: Client, message: Message):
     """Handler perintah /lyrics untuk mencari dan menampilkan lirik lagu."""
     chat_id = message.chat.id

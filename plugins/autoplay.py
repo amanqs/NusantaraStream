@@ -22,6 +22,7 @@ from utils.database import db
 from utils.queue import queue_manager
 from utils.formatters import clean_markdown
 from utils.rich_parser import RichParser
+from utils.decorators import BOT
 
 logger = logging.getLogger("NusantaraStream.AutoPlay")
 
@@ -83,7 +84,7 @@ async def _is_admin(client: Client, chat_id: int, user_id: int) -> bool:
         return False
 
 
-@Client.on_message(filters.command(["autoplay", "ap"]) & ~filters.forwarded)
+@BOT("autoplay", "ap")
 async def autoplay_command(client: Client, message: Message):
     """Handler perintah /autoplay untuk mengaktifkan / menonaktifkan lagu rekomendasi otomatis."""
     chat = message.chat
@@ -144,7 +145,7 @@ async def autoplay_command(client: Client, message: Message):
     await RichParser.reply(message, card, reply_markup=markup)
 
 
-@Client.on_callback_query(filters.regex(r"^ap:(on|off|toggle)"))
+@BOT.on_callback_query(filters.regex(r"^ap:(on|off|toggle)"))
 async def autoplay_callback_handler(client: Client, query: CallbackQuery):
     """Handler callback inline button toggle Auto-Play."""
     chat = query.message.chat

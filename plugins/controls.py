@@ -33,7 +33,7 @@ from utils.keyboards import (
     ButtonStyle,
 )
 from utils.queue import queue_manager
-from utils.decorators import authorized_only
+from utils.decorators import authorized_only, BOT
 from utils.rich_parser import RichParser
 
 logger = logging.getLogger("NusantaraStream.Controls")
@@ -44,7 +44,7 @@ logger = logging.getLogger("NusantaraStream.Controls")
 # ============================================================================
 
 
-@Client.on_message(filters.command(["pause"]) & ~filters.forwarded)
+@BOT("pause")
 @authorized_only
 async def pause_command(client: Client, message: Message):
     """Menjeda pemutaran musik via perintah."""
@@ -68,7 +68,7 @@ async def pause_command(client: Client, message: Message):
         await RichParser.reply(message, "❌ *Gagal menjeda pemutaran.*")
 
 
-@Client.on_message(filters.command(["resume"]) & ~filters.forwarded)
+@BOT("resume")
 @authorized_only
 async def resume_command(client: Client, message: Message):
     """Melanjutkan pemutaran musik via perintah."""
@@ -92,7 +92,7 @@ async def resume_command(client: Client, message: Message):
         await RichParser.reply(message, "❌ *Gagal melanjutkan pemutaran.*")
 
 
-@Client.on_message(filters.command(["mute"]) & ~filters.forwarded)
+@BOT("mute")
 @authorized_only
 async def mute_command(client: Client, message: Message):
     """Membisukan suara asisten di voice chat."""
@@ -108,7 +108,7 @@ async def mute_command(client: Client, message: Message):
     await RichParser.reply(message, "🔇 **Suara asisten berhasil dibisukan (Muted).**")
 
 
-@Client.on_message(filters.command(["unmute"]) & ~filters.forwarded)
+@BOT("unmute")
 @authorized_only
 async def unmute_command(client: Client, message: Message):
     """Membuka kembali suara asisten di voice chat."""
@@ -124,7 +124,7 @@ async def unmute_command(client: Client, message: Message):
     await RichParser.reply(message, "🔊 **Suara asisten berhasil dibuka (Unmuted).**")
 
 
-@Client.on_message(filters.command(["skip", "next"]) & ~filters.forwarded)
+@BOT("skip", "next")
 @authorized_only
 async def skip_command(client: Client, message: Message):
     """Melompati lagu ke antrean berikutnya via perintah."""
@@ -149,7 +149,7 @@ async def skip_command(client: Client, message: Message):
         )
 
 
-@Client.on_message(filters.command(["stop", "end"]) & ~filters.forwarded)
+@BOT("stop", "end")
 @authorized_only
 async def stop_command(client: Client, message: Message):
     """Menghentikan pemutaran, menghapus antrean, dan keluar voice chat."""
@@ -169,7 +169,7 @@ async def stop_command(client: Client, message: Message):
     )
 
 
-@Client.on_message(filters.command(["queue", "q"]) & ~filters.forwarded)
+@BOT("queue", "q")
 async def queue_command(client: Client, message: Message):
     """Melihat daftar antrean lagu saat ini."""
     chat_id = message.chat.id
@@ -191,7 +191,7 @@ async def queue_command(client: Client, message: Message):
     )
 
 
-@Client.on_message(filters.command(["shuffle"]) & ~filters.forwarded)
+@BOT("shuffle")
 @authorized_only
 async def shuffle_command(client: Client, message: Message):
     """Mengacak urutan antrean lagu."""
@@ -205,7 +205,7 @@ async def shuffle_command(client: Client, message: Message):
         )
 
 
-@Client.on_message(filters.command(["loop", "repeat"]) & ~filters.forwarded)
+@BOT("loop", "repeat")
 @authorized_only
 async def loop_command(client: Client, message: Message):
     """Mengubah status loop pemutaran lagu."""
@@ -215,7 +215,7 @@ async def loop_command(client: Client, message: Message):
     await RichParser.reply(message, f"🔁 **Mode Perulangan:** {status_str}")
 
 
-@Client.on_message(filters.command(["vol", "volume"]) & ~filters.forwarded)
+@BOT("vol", "volume")
 @authorized_only
 async def volume_command(client: Client, message: Message):
     """Mengatur volume suara bot (1-200%)."""
@@ -238,7 +238,7 @@ async def volume_command(client: Client, message: Message):
 # ============================================================================
 
 
-@Client.on_callback_query(filters.regex(r"^ctrl:(.+)"))
+@BOT.on_callback_query(filters.regex(r"^ctrl:(.+)"))
 @authorized_only
 async def control_panel_callback(client: Client, query: CallbackQuery):
     """Handler tombol-tombol pada Control Panel interaktif."""
@@ -410,7 +410,7 @@ async def _update_player_ui(query: CallbackQuery, chat_id: int, current):
         logger.debug(f"Error update player UI: {e}")
 
 
-@Client.on_callback_query(filters.regex(r"^noop$"))
+@BOT.on_callback_query(filters.regex(r"^noop$"))
 async def noop_callback(client: Client, query: CallbackQuery):
     """Callback untuk tombol statis / indikator halaman."""
     await query.answer()
@@ -453,7 +453,7 @@ def get_speed_keyboard(chat_id: int, current_speed: str = "1.0") -> InlineKeyboa
     return InlineKeyboardMarkup(buttons)
 
 
-@Client.on_message(filters.command(["speed", "tempo"]) & ~filters.forwarded)
+@BOT("speed", "tempo")
 @authorized_only
 async def speed_command(client: Client, message: Message):
     """Handler perintah /speed untuk mengatur kecepatan pemutaran musik."""
@@ -481,7 +481,7 @@ async def speed_command(client: Client, message: Message):
     await RichParser.reply(message, card, reply_markup=markup)
 
 
-@Client.on_message(filters.command(["nightcore"]) & ~filters.forwarded)
+@BOT("nightcore")
 @authorized_only
 async def nightcore_command(client: Client, message: Message):
     """Preset audio Nightcore (tempo 1.25x & volume 110%)."""
@@ -497,7 +497,7 @@ async def nightcore_command(client: Client, message: Message):
     )
 
 
-@Client.on_message(filters.command(["slowed", "reverb"]) & ~filters.forwarded)
+@BOT("slowed", "reverb")
 @authorized_only
 async def slowed_command(client: Client, message: Message):
     """Preset audio Slowed & Reverb (tempo 0.85x)."""
@@ -512,7 +512,7 @@ async def slowed_command(client: Client, message: Message):
     )
 
 
-@Client.on_message(filters.command(["bass", "bassboost"]) & ~filters.forwarded)
+@BOT("bass", "bassboost")
 @authorized_only
 async def bass_boost_command(client: Client, message: Message):
     """Preset Bass Boost (Volume 150%)."""
@@ -528,7 +528,7 @@ async def bass_boost_command(client: Client, message: Message):
     )
 
 
-@Client.on_callback_query(filters.regex(r"^set_speed:(.+)"))
+@BOT.on_callback_query(filters.regex(r"^set_speed:(.+)"))
 async def set_speed_callback(client: Client, query: CallbackQuery):
     """Handler callback pengaturan kecepatan suara."""
     speed_val = query.data.split(":")[1]
@@ -550,7 +550,7 @@ async def set_speed_callback(client: Client, query: CallbackQuery):
 # SEEK — MAJU / MUNDUR PEMUTARAN (Video & Audio, kecuali Live/TV/Radio)
 # ============================================================================
 
-@Client.on_message(filters.command(["seek", "ff", "rw"]) & ~filters.forwarded)
+@BOT("seek", "ff", "rw")
 @authorized_only
 async def seek_command(client: Client, message: Message):
     """Handler /seek <detik> — loncat posisi putar. Contoh: /ff 30 (maju 30 detik)."""
@@ -582,7 +582,7 @@ async def seek_command(client: Client, message: Message):
     )
 
 
-@Client.on_callback_query(filters.regex(r"^seek:(\d+):([+-]?\d+)$"))
+@BOT.on_callback_query(filters.regex(r"^seek:(\d+):([+-]?\d+)$"))
 @authorized_only
 async def seek_callback(client: Client, query: CallbackQuery):
     """Callback tombol seek di control panel video/film."""

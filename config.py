@@ -96,9 +96,11 @@ class Config:
     AUTO_BACKUP_ENABLED: bool = os.getenv("AUTO_BACKUP", "True").lower() in ("true", "1", "yes")
     AUTO_BACKUP_INTERVAL_HOURS: int = int(os.getenv("AUTO_BACKUP_INTERVAL_HOURS", "24"))
 
-    # Temp directories
+    # Storage & Directory paths
+    DATA_DIR: str = os.path.join(os.path.dirname(__file__), "data")
     TEMP_DIR: str = os.path.join(os.path.dirname(__file__), "downloads")
     CACHE_DIR: str = os.path.join(os.path.dirname(__file__), "cache")
+    DB_PATH: str = os.getenv("DATABASE_PATH", os.path.join(DATA_DIR, "nusantara_data.db"))
 
     # Rich UI Custom Badges & Icons
     THEME_ICONS = {
@@ -129,6 +131,8 @@ class Config:
     }
 
 
-# Buat direktori temp & cache secara otomatis jika belum ada
+# Buat direktori data, temp & cache secara otomatis jika belum ada
+os.makedirs(Config.DATA_DIR, exist_ok=True)
 os.makedirs(Config.TEMP_DIR, exist_ok=True)
 os.makedirs(Config.CACHE_DIR, exist_ok=True)
+
